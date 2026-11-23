@@ -200,6 +200,16 @@
   tr[data-ag]:hover{background:rgba(35,36,42,.04)}
   .tnome{display:flex;align-items:center;gap:8px}
   .tnome .nav{width:26px;height:26px;font-size:11px}
+  .mk{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(35,36,42,.08);color:var(--ink);white-space:nowrap}
+  .mk.ok{background:rgba(39,174,96,.15);color:#17683a}
+  .mkrow{margin-top:4px;display:flex;gap:6px;flex-wrap:wrap}
+  .btn.sm{width:auto;margin:0;padding:6px 12px;font-size:13px}
+  .btn.sm:disabled{opacity:.35;cursor:not-allowed}
+  .dnav{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;background:var(--bg)}
+  .dnleft,.dnright{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .dnpos{font-size:12px;color:var(--muted)}
+  .chk{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin:0}
+  .chk input{width:auto;margin:0;accent-color:var(--good)}
   /* drawer */
   #drawer{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;z-index:10}
   #drawer.open{transform:none}
@@ -408,6 +418,7 @@
 <!-- detalhe da conversa -->
 <aside id="drawer" aria-label="Detalhe da conversa">
   <div class="d-head"><div><strong id="dTitle"></strong><div class="pill" id="dSub" style="margin-top:6px;display:inline-block"></div></div><button class="btn ghost" id="dClose">Fechar</button></div>
+  <div id="dNav" class="dnav"></div>
   <div class="d-body" id="dBody"></div>
 </aside>
 
@@ -487,7 +498,7 @@ supa.auth.onAuthStateChange((event, session) => {
   if (session) setTimeout(() => bootstrap(session), 0); else showLogin();
 });
 function showLogin() {
-  me = null; DATA = []; NOTES = []; NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
+  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
   $('app').classList.add('hidden'); $('login').classList.remove('hidden');
 }
 async function bootstrap(session) {
@@ -547,6 +558,7 @@ async function startApp(rows) {
   applyView();
   loadNotes();
   loadTeamWeekly();
+  loadReviews();
   if (me.perfil === 'lider') loadPeople();
 }
 function applyView() {
@@ -634,7 +646,7 @@ function render() {
   $('empty').classList.toggle('hidden', list.length > 0);
   if (!list.length) { const ult = DATA.length ? DATA.reduce((m, c) => c.date > m ? c.date : m, DATA[0].date) : null; $('empty').textContent = 'Nenhuma conversa com esses filtros.' + (ult ? ' A conversa mais recente carregada é de ' + ult.toLocaleDateString('pt-BR') + '. Escolha "Todo o período" para ver tudo.' : ''); }
   $('rows').innerHTML = list.slice(0, shown).map(c => `<tr data-id="${esc(c.id)}">
-    <td><strong>${esc(c.id)}</strong><div style="color:var(--muted);font-size:12px">${esc(c.motivo || 'sem classificação')}</div></td>
+    <td><strong>${esc(c.id)}</strong><div style="color:var(--muted);font-size:12px">${esc(c.motivo || 'sem classificação')}</div>${marks(c) ? `<div class="mkrow">${marks(c)}</div>` : ''}</td>
     <td>${fmtD(c.date)}</td><td>${esc(c.agent)}</td><td>${sc(c.csat)}</td><td>${fcrTagC(c)}</td>
     <td>${fmtSec(c.dur)}${c.pausas ? ` <span class="tag" title="${c.pausas} pausa(s) de 12h ou mais descontada(s)">adiada</span>` : ''}</td>
     <td>${fmtSec(c.gap)}</td><td>${fmtSec(c.first)}${c.longa ? ' <span class="tag" title="Espera longa: tempo real, fora da média">espera longa</span>' : ''}</td></tr>`).join('');
@@ -649,8 +661,9 @@ $('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); setPeriod(
 
 /* ---------- 4) CONVERSA + CSAT ---------- */
 $('rows').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) openDrawer(DATA.find(c => c.id === tr.dataset.id)); });
-function openDrawer(c) {
+function openDrawer(c, fila) {
   if (!c) return;
+  reviewQueue = fila || [];
   $('dTitle').textContent = `${c.id} · ${c.motivo || 'Sem classificação'}`;
   $('dSub').textContent = `${c.agent} · ${c.canal || 'canal n/d'}`;
   const item = (l, v) => `<div><span>${l}</span>${v}</div>`;
@@ -678,6 +691,7 @@ function openDrawer(c) {
   drawerQuote = '';
   loadMessages(c);
   drawerId = c.id; renderDrawerNotes();
+  renderDrawerNav(c); $('dBody').scrollTop = 0;
 }
 let drawerId = null;
 const hora = d => d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -970,6 +984,7 @@ async function loadNotes() {
     NOTES = all;
   } catch (e) { $('nList').textContent = 'Não foi possível carregar as anotações: ' + (e.message || e); return; }
   buildViewAs(); updateBell(); renderNotes(); if ($('drawer').classList.contains('open') && drawerId) renderDrawerNotes(true);
+  render(); renderSemana();
   loadAvatars();
   clearInterval(notesTimer); notesTimer = setInterval(() => { if (me) loadNotes(); }, 60000);
 }
@@ -1079,6 +1094,7 @@ let drawerQuote = '';
 function renderQuote(p, t) { $(p + 'Quote').innerHTML = t ? `<span class="qchip">Trecho: ${esc(t.slice(0, 80))}${t.length > 80 ? '…' : ''}<a data-rmq="1">remover</a></span>` : ''; }
 function renderDrawerNotes(force) {
   const box = $('dNotes'); if (!box || !me || !drawerId) return;
+  const cc = DATA.find(x => x.id === drawerId); if (cc && $('dNav')) setTimeout(() => renderDrawerNav(cc), 0);
   if (!$('dNotesList')) box.innerHTML = '<div id="dNotesList"></div><div id="dNotesComp"></div>';
   const L = NOTES.filter(n => n.conversation_id === drawerId && (!n.privado || n.de_id === actor().id));
   $('dNotesList').innerHTML = `<div class="vsecs" style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em">Anotações desta conversa (${L.length})</div>` +
@@ -1425,11 +1441,12 @@ function renderSemana() {
   $('swTeam').innerHTML = tabelaTime;
 
   /* conversas para revisar */
-  const rv = swReview(L), mostra = swAllRev ? rv : rv.slice(0, 6);
-  $('swRev').innerHTML = `<h3>Conversas para revisar</h3><div class="sub">Nota 1 e 2 primeiro. Entram também clientes que voltaram pelo mesmo motivo e esperas longas</div>` +
-    (rv.length ? mostra.map(({ c, why }) => `<div class="revrow"><div>${sc(c.csat)} <b style="font-weight:600;margin-left:6px">${esc(c.motivo || 'sem classificação')}</b>${equipe ? ` <span style="color:var(--muted)">· ${esc(shortName(c.agent))}</span>` : ''} <span style="color:var(--muted)">· ${esc(why.join(', '))} · ${ddmm(c.date)}</span></div><button class="btn ghost" type="button" data-open="${esc(c.id)}" style="padding:6px 14px">Abrir e anotar</button></div>`).join('') +
+  const rv0 = swReview(L), feitas = rv0.filter(x => jaRevisou(x.c.id)).length, rv = swHideRev ? rv0.filter(x => !jaRevisou(x.c.id)) : rv0, mostra = swAllRev ? rv : rv.slice(0, 6);
+  swQueue = rv.map(x => x.c.id);
+  $('swRev').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><h3>Conversas para revisar</h3><div class="sub">Nota 1 e 2 primeiro. Entram também clientes que voltaram pelo mesmo motivo e esperas longas${rv0.length ? ` · <b>${feitas} de ${rv0.length} revisadas</b>` : ''}</div></div>${rv0.length ? `<label class="chk"><input type="checkbox" id="swHideRev" ${swHideRev ? 'checked' : ''}> Ocultar revisadas</label>` : ''}</div>` +
+    (rv.length ? mostra.map(({ c, why }) => `<div class="revrow"><div>${sc(c.csat)} <b style="font-weight:600;margin-left:6px">${esc(c.motivo || 'sem classificação')}</b>${equipe ? ` <span style="color:var(--muted)">· ${esc(shortName(c.agent))}</span>` : ''} <span style="color:var(--muted)">· ${esc(why.join(', '))} · ${ddmm(c.date)}</span>${marks(c) ? `<div class="mkrow">${marks(c)}</div>` : ''}</div><button class="btn ghost" type="button" data-open="${esc(c.id)}" style="padding:6px 14px">Abrir e anotar</button></div>`).join('') +
       (rv.length > 6 ? `<div style="padding-top:10px"><button class="lnk" type="button" data-allrev="1" style="background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0;font-size:12px">${swAllRev ? 'Ver só as 6 primeiras' : `Ver todas (${rv.length})`}</button></div>` : '')
-      : '<div class="vempty">Nada para revisar neste período.</div>');
+      : `<div class="vempty">${rv0.length ? 'Tudo revisado. Bom trabalho!' : 'Nada para revisar neste período.'}</div>`);
 
   /* evolução das últimas 6 semanas */
   const itens = [];
@@ -1447,10 +1464,78 @@ $('swModeD').onclick = () => { sw.mode = 'day'; renderSemana(); };
 $('swAgent').onchange = $('swCmp').onchange = () => { swAllRev = false; renderSemana(); };
 $('tab-sem').addEventListener('click', e => {
   const d = e.target.closest('[data-day]'); if (d) { sw.mode = 'day'; sw.day = parseDay(d.dataset.day); renderSemana(); return; }
-  const o = e.target.closest('[data-open]'); if (o) { const c = DATA.find(x => x.id === o.dataset.open); if (c) openDrawer(c); return; }
+  const o = e.target.closest('[data-open]'); if (o) { const c = DATA.find(x => x.id === o.dataset.open); if (c) openDrawer(c, swQueue.slice()); return; }
   if (e.target.closest('[data-allrev]')) { swAllRev = !swAllRev; renderSemana(); return; }
   const r = e.target.closest('tr[data-ag]'); if (r) { $('swAgent').value = r.dataset.ag; swAllRev = false; renderSemana(); }
 });
+
+/* ---------- 11) REVISÃO DE CONVERSAS: próxima conversa, "revisada" e sinal de anotação ---------- */
+let REVMAP = new Map();          // conversa -> (pessoa -> quando revisou)
+let reviewQueue = [], swQueue = [], swHideRev = false;
+const personIdByName = nome => { const p = [...NPEOPLE.values()].find(x => x.nome.trim().toLowerCase() === String(nome).trim().toLowerCase()); return p ? p.id : null; };
+const jaRevisou = id => { const m = REVMAP.get(id); return !!m && me && m.has(actor().id); };
+const ICON_OK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+const ICON_MSG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+
+/* sinais de uma conversa: revisada e com anotação */
+function marks(c) {
+  if (!me) return '';
+  const out = [], rv = REVMAP.get(c.id), eu = actor().id;
+  if (rv && rv.has(eu)) out.push(`<span class="mk ok" title="Você já revisou esta conversa">${ICON_OK} Revisada</span>`);
+  else if (rv) { const dono = personIdByName(c.agent); if (dono && dono !== eu && rv.has(dono)) out.push(`<span class="mk" title="${esc(c.agent)} já revisou esta conversa">${ICON_OK} Revisada por ${esc(shortName(c.agent))}</span>`); }
+  const k = NOTES.filter(n => n.conversation_id === c.id && (!n.privado || n.de_id === eu)).length;
+  if (k) out.push(`<span class="mk" title="${k} anotação(ões) nesta conversa">${ICON_MSG} ${k} anotaç${k > 1 ? 'ões' : 'ão'}</span>`);
+  return out.join(' ');
+}
+async function loadReviews() {
+  if (!me) return;
+  let all = [], from = 0;
+  for (;;) {
+    const r = await supa.from('revisoes').select('conversation_id,pessoa_id,revisado_em').range(from, from + 999);
+    if (r.error) return;
+    all = all.concat(r.data);
+    if (r.data.length < 1000) break;
+    from += 1000;
+  }
+  REVMAP = new Map();
+  all.forEach(x => { (REVMAP.get(x.conversation_id) || REVMAP.set(x.conversation_id, new Map()).get(x.conversation_id)).set(x.pessoa_id, x.revisado_em); });
+  render(); renderSemana(); const c = DATA.find(x => x.id === drawerId); if (c && $('drawer').classList.contains('open')) renderDrawerNav(c);
+}
+async function setReview(id, on) {
+  if (simulando()) return;
+  if (on) {
+    const { error } = await supa.from('revisoes').insert({ conversation_id: id, pessoa_id: me.id });
+    if (error && !/duplicate|already/i.test(error.message)) { alert('Não foi possível marcar como revisada.'); return; }
+    (REVMAP.get(id) || REVMAP.set(id, new Map()).get(id)).set(me.id, new Date().toISOString());
+  } else {
+    const { error } = await supa.from('revisoes').delete().eq('conversation_id', id).eq('pessoa_id', me.id);
+    if (error) { alert('Não foi possível desfazer a revisão.'); return; }
+    const m = REVMAP.get(id); if (m) { m.delete(me.id); if (!m.size) REVMAP.delete(id); }
+  }
+  render(); renderSemana(); const c = DATA.find(x => x.id === id); if (c && drawerId === id) renderDrawerNav(c);
+}
+
+/* barra do painel: Anterior / Próxima e "Marcar como revisada" */
+function renderDrawerNav(c) {
+  const nav = $('dNav'); if (!nav || !me) return;
+  const i = reviewQueue.indexOf(c.id), tem = i >= 0, n = reviewQueue.length, rev = jaRevisou(c.id), sim = simulando();
+  nav.innerHTML = `<div class="dnleft">${tem ? `<button class="btn ghost sm" type="button" data-nav="-1" ${i === 0 ? 'disabled' : ''}>‹ Anterior</button><span class="dnpos">${i + 1} de ${n}</span><button class="btn ghost sm" type="button" data-nav="1" ${i === n - 1 ? 'disabled' : ''}>Próxima ›</button>` : ''}<span class="dnmarks">${marks(c)}</span></div>` +
+    `<div class="dnright">${sim ? '<span class="note" style="margin:0">Revisão desativada na prévia</span>' : `<button class="btn ghost sm" type="button" data-rev="toggle">${rev ? 'Desfazer revisão' : 'Marcar como revisada'}</button>${tem && !rev && i < n - 1 ? '<button class="btn sm" type="button" data-rev="next">Revisada e próxima ›</button>' : ''}`}</div>`;
+}
+function irParaConversa(id) { const c = DATA.find(x => x.id === id); if (c) { openDrawer(c, reviewQueue); $('dBody').scrollTop = 0; } }
+$('dNav').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  const id = drawerId, i = reviewQueue.indexOf(id);
+  if (b.dataset.nav) return irParaConversa(reviewQueue[i + Number(b.dataset.nav)]);
+  if (b.dataset.rev === 'toggle') return setReview(id, !jaRevisou(id));
+  if (b.dataset.rev === 'next') { if (!jaRevisou(id)) await setReview(id, true); irParaConversa(reviewQueue[i + 1]); }
+});
+document.addEventListener('keydown', e => {
+  if (!$('drawer').classList.contains('open') || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '')) return;
+  if (e.key === 'ArrowRight' && reviewQueue.length) { const i = reviewQueue.indexOf(drawerId); if (i >= 0 && i < reviewQueue.length - 1) irParaConversa(reviewQueue[i + 1]); }
+  if (e.key === 'ArrowLeft' && reviewQueue.length) { const i = reviewQueue.indexOf(drawerId); if (i > 0) irParaConversa(reviewQueue[i - 1]); }
+});
+$('tab-sem').addEventListener('change', e => { if (e.target.id === 'swHideRev') { swHideRev = e.target.checked; renderSemana(); } });
 
 /* sessão já existente (recarregar a página) */
 supa.auth.getSession().then(({ data }) => { if (!data.session) showLogin(); });
