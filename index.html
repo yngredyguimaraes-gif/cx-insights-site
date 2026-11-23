@@ -191,6 +191,10 @@
   .insr .dot{width:9px;height:9px;border-radius:50%;margin-top:6px;flex:none}
   .revrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;flex-wrap:wrap}
   .cbar.hi{background:var(--dark)}
+  .cbar.lo{opacity:.4}
+  .tv{font-weight:700;font-size:14px}
+  .tdl{display:block;font-size:11px;font-weight:600;margin-top:1px}
+  .tdl.good{color:var(--good)}.tdl.bad{color:var(--bad)}.tdl.eq{color:var(--muted);font-weight:400}
   .dl{font-size:11px;margin-left:6px;font-weight:600}.dl.good{color:var(--good)}.dl.bad{color:var(--bad)}.dl.eq{color:var(--muted)}
   tr[data-ag]{cursor:pointer}
   tr[data-ag]:hover{background:rgba(35,36,42,.04)}
@@ -412,6 +416,8 @@
 /* ---------- 0) CONEXÃO ----------
    A chave abaixo é a chave PÚBLICA do projeto (feita para ficar no navegador).
    Quem protege os dados é a regra de acesso por linha no banco. */
+/* todos os números decimais do site saem com vírgula (padrão pt-BR) */
+(() => { const tf = Number.prototype.toFixed; Number.prototype.toFixed = function (d) { return tf.call(this, d).replace('.', ','); }; })();
 const SUPABASE_URL = 'https://ktjvazdwkanszykmjmra.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_ChJSvYCc_pC_lx2gscbjBA_Iz8-bEft';
 const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -801,14 +807,14 @@ function colChart(items, o) {
   const ticks = [0, max / 2, max];
   const hi = vals.indexOf(Math.max(...vals)), idxMax = items.findIndex(i => i.value === Math.max(...vals));
   let last = -1; items.forEach((it, i) => { if (it.value != null) last = i; });
-  const mark = new Set([idxMax, last]);
+  const mark = o.labelAll && items.length <= 12 ? new Set(items.map((_, i) => i)) : new Set([idxMax, last]);   // valor em todas as barras só quando cabe
   const step = Math.max(1, Math.ceil(items.length / 8));
   const y = ticks.map(t => `<span style="bottom:${t / max * 100}%">${o.fmtTick ? o.fmtTick(t) : fmtN(t)}</span>`).join('');
   const gl = ticks.map((t, i) => `<div class="cgl${i === 0 ? ' base' : ''}" style="bottom:${t / max * 100}%"></div>`).join('');
   const slots = items.map((it, i) => {
     const pct = it.value == null ? 0 : Math.min(it.value / max * 100, 100);
     const lab = it.value != null && mark.has(i) ? `<span class="clab" style="bottom:calc(${pct}% + 3px)">${o.fmt(it.value)}</span>` : '';
-    return `<div class="cslot" tabindex="0" role="img" aria-label="${esc(it.tip)}" data-tip="${esc(it.tip)}"><div class="cbar${it.hi ? ' hi' : ''}" style="height:${pct}%"></div>${lab}</div>`;
+    return `<div class="cslot" tabindex="0" role="img" aria-label="${esc(it.tip)}" data-tip="${esc(it.tip)}"><div class="cbar${it.hi ? ' hi' : ''}${it.lo ? ' lo' : ''}" style="height:${pct}%"></div>${lab}</div>`;
   }).join('');
   const xl = items.map((it, i) => `<span>${i % step === 0 ? esc(it.label) : ''}</span>`).join('');
   return `<div class="cc"><div class="cy">${y}</div><div class="cmain"><div class="cplot">${gl}<div class="cbars">${slots}</div></div><div class="cx">${xl}</div></div></div>`;
@@ -895,7 +901,7 @@ function renderDados() {
   ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
 
   const cards = [];
-  cards.push(seriesCard(`CSAT médio por ${u}`, `Nota de 0 a 5, agrupada por ${u} de abertura da conversa`, weeklySeries(L, csatAvg, { fmt: v => v.toFixed(2) }), { fmt: v => v.toFixed(2), fmtTick: v => fmtN(v), max: 5, col: 'CSAT médio' }));
+  cards.push(seriesCard(`CSAT médio por ${u}`, `Nota de 0 a 5, agrupada por ${u} de abertura da conversa`, weeklySeries(L, csatAvg, { fmt: v => v.toFixed(2) }), { fmt: v => v.toFixed(2), fmtTick: v => fmtN(v), max: 5, col: 'CSAT médio', labelAll: true }));
   cards.push(seriesCard(`Conversas avaliadas por ${u}`, `Quantas conversas com CSAT foram abertas em cada ${u}`, weeklySeries(L, g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
 
   const dist = [1, 2, 3, 4, 5].map(n => { const k = L.filter(c => c.csat === n).length; return { label: 'Nota ' + n, value: k, n: k, tip: `Nota ${n}: ${k} conversa(s) · ${L.length ? Math.round(k / L.length * 100) : 0}%` }; });
@@ -1286,23 +1292,29 @@ function swInit() {
 const inR = (L, a, b) => L.filter(c => c.date >= a && c.date < b);
 function swBase() { let L = scope(); if (seesAllNow() && $('swAgent').value) L = L.filter(c => c.agent === $('swAgent').value); return L; }
 function swStats(L) {
-  const k = L.filter(fcrVal);
+  const k = L.filter(fcrVal), parc = k.filter(c => c.fcr === 'em_apuracao').length;
   return { n: L.length, csat: L.length ? avg(L.map(c => c.csat)) : null, fcr: k.length ? k.filter(c => fcrVal(c) === 'sim').length / k.length * 100 : null,
-    parcial: L.filter(c => c.fcr === 'em_apuracao' && c.fcrParcial).length, resp: median(L.filter(c => !c.longa).map(c => c.first)) };
+    parcial: L.filter(c => c.fcr === 'em_apuracao' && c.fcrParcial).length, share: k.length ? parc / k.length : 0, resp: median(L.filter(c => !c.longa).map(c => c.first)) };
 }
-function swTile(label, val, fmt, base, low, un, baseLabel, note) {
+/* tempo sempre em minutos, número sempre com vírgula, variação sempre com unidade */
+const minTxt = m => m == null ? '—' : Math.round(m).toLocaleString('pt-BR') + ' min';
+const comparavel = (a, b) => !!a && !!b && Math.abs((a.share || 0) - (b.share || 0)) <= 0.25;     // FCR parcial não se compara com FCR fechado
+const dTxt = (x, un) => un === '' ? Math.abs(x).toFixed(2) : un === 'pp' ? Math.abs(x).toFixed(1) + ' pp' : Math.round(Math.abs(x)).toLocaleString('pt-BR') + ' min';
+const dIgual = (x, un) => Math.abs(x) < (un === '' ? 0.005 : 0.5);
+function swTile(label, val, fmt, base, low, un, baseLabel, note, semBase) {
   let d = '<div class="kd eq">sem base de comparação</div>';
   if (val == null) d = '<div class="kd eq">sem conversas</div>';
+  else if (semBase) d = `<div class="kd eq">${semBase}</div>`;
   else if (base != null) {
-    const x = val - base, abs = Math.abs(x), eq = abs < (un === '' ? 0.05 : 0.5), bom = low ? x < 0 : x > 0;
-    d = eq ? `<div class="kd eq">igual a ${baseLabel}</div>` : `<div class="kd ${bom ? 'good' : 'bad'}">${x > 0 ? '▲' : '▼'} ${un === '' ? abs.toFixed(1) : fmtN(abs) + ' ' + un} vs ${baseLabel}</div>`;
+    const x = val - base, bom = low ? x < 0 : x > 0;
+    d = dIgual(x, un) ? `<div class="kd eq">igual a ${baseLabel}</div>` : `<div class="kd ${bom ? 'good' : 'bad'}">${x > 0 ? '▲' : '▼'} ${dTxt(x, un)} vs ${baseLabel}</div>`;
   }
   return `<div class="kpi"><div class="v">${val == null ? '—' : fmt(val)}</div><div class="l">${label}</div>${d}${note ? `<div class="kd eq">${note}</div>` : ''}</div>`;
 }
 const dlt = (v, b, low, un) => {
-  if (v == null || b == null) return '';
-  const x = v - b, eq = Math.abs(x) < (un === '' ? 0.05 : 0.5); if (eq) return '<span class="dl eq">=</span>';
-  return `<span class="dl ${(low ? x < 0 : x > 0) ? 'good' : 'bad'}">${x > 0 ? '▲' : '▼'}${un === '' ? Math.abs(x).toFixed(1) : fmtN(Math.abs(x))}</span>`;
+  if (v == null || b == null) return '<span class="tdl eq">—</span>';
+  const x = v - b; if (dIgual(x, un)) return '<span class="tdl eq">= igual</span>';
+  return `<span class="tdl ${(low ? x < 0 : x > 0) ? 'good' : 'bad'}">${x > 0 ? '▲' : '▼'} ${dTxt(x, un)}</span>`;
 };
 const swDefaultDay = (L, mon) => {
   let best = null;
@@ -1354,10 +1366,13 @@ function renderSemana() {
     ref = t ? { csat: t.csat_medio == null ? null : +t.csat_medio, fcr: t.fcr_pct == null ? null : +t.fcr_pct, resp: t.primeira_mediana_s == null ? null : +t.primeira_mediana_s } : null;
   } else { const pl = inR(base, addDays(mon, -7), mon); ref = pl.length ? swStats(pl) : null; refLabel = 'a semana anterior'; }
   const cur = swStats(L);
+  const fcrComp = !!ref && ((cmp === 'team' && !modoDia && !equipe) || comparavel(cur, ref)), fcrParc = cur.share > 0.3;
   $('swTiles').innerHTML = [
     swTile('CSAT médio', cur.csat, v => v.toFixed(2), ref ? ref.csat : null, false, '', refLabel),
-    swTile('FCR (inclui parciais)', cur.fcr, v => Math.round(v) + '%', ref ? ref.fcr : null, false, 'pts', refLabel, cur.parcial ? `${cur.parcial} parcial(is)` : ''),
-    swTile('1ª resposta (mediana)', cur.resp == null ? null : cur.resp / 60, fmtMin, ref && ref.resp != null ? ref.resp / 60 : null, true, 'min', refLabel),
+    swTile(fcrParc ? 'FCR (parcial)' : 'FCR', cur.fcr, v => Math.round(v) + '%', fcrComp && ref ? ref.fcr : null, false, 'pp', refLabel,
+      fcrParc ? `${Math.round(cur.share * 100)}% das conversas ainda dentro dos 7 dias` : (cur.parcial ? `${cur.parcial} parcial(is)` : ''),
+      cur.fcr != null && ref && !fcrComp ? 'sem comparação: a janela de 7 dias ainda não fechou' : ''),
+    swTile('1ª resposta (mediana)', cur.resp == null ? null : cur.resp / 60, minTxt, ref && ref.resp != null ? ref.resp / 60 : null, true, 'min', refLabel),
     `<div class="kpi"><div class="v">${cur.n}</div><div class="l">Conversas avaliadas</div><div class="kd eq">${modoDia ? 'no dia' : fechada ? 'na semana' : 'até hoje'}</div></div>`
   ].join('');
 
@@ -1379,7 +1394,7 @@ function renderSemana() {
       } else if (cmp === 'team' && !equipe) I.push([x >= 0 ? 'good' : 'bad', x === 0 ? `${quem} está igual à média do time.` : `${quem} está ${a} ${x > 0 ? 'acima' : 'abaixo'} da média do time (${ref.csat.toFixed(1)} → ${cur.csat.toFixed(1)}).`]);
       else I.push([x >= 0 ? 'good' : 'bad', x === 0 ? `${quem} ficou igual ao da semana anterior.` : `${quem} ${x > 0 ? 'subiu' : 'caiu'} ${a} em relação à semana anterior (${ref.csat.toFixed(1)} → ${cur.csat.toFixed(1)}).`]);
     } else I.push(['info', `${quem} foi ${cur.csat.toFixed(1)}. Não há ${modoDia ? 'outros dias' : 'semana anterior'} para comparar.`]);
-    if (!modoDia && ref && ref.fcr != null && cur.fcr != null && Math.abs(cur.fcr - ref.fcr) >= 5) I.push([cur.fcr > ref.fcr ? 'good' : 'bad', `O FCR ${cur.fcr > ref.fcr ? 'subiu' : 'caiu'} ${fmtN(Math.abs(cur.fcr - ref.fcr))} pontos (${Math.round(ref.fcr)}% → ${Math.round(cur.fcr)}%) em relação ${cmp === 'team' && !equipe ? 'ao time' : 'à semana anterior'}.`]);
+    if (!modoDia && fcrComp && ref.fcr != null && cur.fcr != null && Math.abs(cur.fcr - ref.fcr) >= 5) I.push([cur.fcr > ref.fcr ? 'good' : 'bad', `O FCR ${cur.fcr > ref.fcr ? 'subiu' : 'caiu'} ${fmtN(Math.abs(cur.fcr - ref.fcr))} pontos percentuais (${Math.round(ref.fcr)}% → ${Math.round(cur.fcr)}%) em relação ${cmp === 'team' && !equipe ? 'ao time' : 'à semana anterior'}.`]);
     const wm = worstMotivo(L, modoDia ? 2 : 3);
     I.push(wm ? ['warn', `O motivo com a pior nota foi <b>${esc(wm.k)}</b>: média ${wm.v.toFixed(1)} em ${wm.n} conversas. É por onde vale começar.`] : ['info', 'Poucas conversas por motivo para comparar.']);
     const rv = swReview(L), volt = rv.filter(x => fcrVal(x.c) === 'nao').length;
@@ -1392,10 +1407,18 @@ function renderSemana() {
     const rows = [...new Set(L.map(c => c.agent))].map(n => { const a = L.filter(c => c.agent === n), p = prevL.filter(c => c.agent === n); return { n, s: swStats(a), ps: p.length ? swStats(p) : null }; }).sort((x, y) => (x.s.csat ?? 9) - (y.s.csat ?? 9));
     if (!modoDia) {
       const mv = rows.filter(r => r.s.n >= 3 && r.ps && r.ps.n >= 3).map(r => ({ n: r.n, d: r.s.csat - r.ps.csat })).sort((a, b) => b.d - a.d);
-      if (mv.length >= 2) I.splice(1, 0, ['info', `Quem mais subiu: <b>${esc(mv[0].n)}</b> (${mv[0].d >= 0 ? '+' : ''}${mv[0].d.toFixed(1)}). Quem mais caiu: <b>${esc(mv[mv.length - 1].n)}</b> (${mv[mv.length - 1].d >= 0 ? '+' : ''}${mv[mv.length - 1].d.toFixed(1)}).`]);
+      if (mv.length >= 2) I.splice(1, 0, ['info', `Quem mais subiu: <b>${esc(mv[0].n)}</b> (${mv[0].d >= 0 ? '+' : '−'}${Math.abs(mv[0].d).toFixed(2)}). Quem mais caiu: <b>${esc(mv[mv.length - 1].n)}</b> (${mv[mv.length - 1].d >= 0 ? '+' : '−'}${Math.abs(mv[mv.length - 1].d).toFixed(2)}).`]);
     }
-    tabelaTime = `<section class="vcard"><h3>Time por atendente</h3><div class="sub">Do menor para o maior CSAT, para ver quem precisa de atenção. Clique numa linha para abrir só essa pessoa</div><div class="tablewrap" style="border:0"><table style="min-width:520px"><thead><tr><th>Atendente</th><th>Conversas</th><th>CSAT</th><th>FCR</th><th>1ª resposta</th></tr></thead><tbody>` +
-      rows.map(r => `<tr data-ag="${esc(r.n)}"><td><div class="tnome"><div class="nav">${avatarByName(r.n)}</div>${esc(r.n)}</div></td><td>${r.s.n}</td><td>${r.s.csat == null ? '—' : r.s.csat.toFixed(1)}${r.ps ? dlt(r.s.csat, r.ps.csat, false, '') : ''}</td><td>${r.s.fcr == null ? '—' : Math.round(r.s.fcr) + '%'}${r.ps ? dlt(r.s.fcr, r.ps.fcr, false, 'pts') : ''}</td><td>${r.s.resp == null ? '—' : fmtMin(r.s.resp / 60)}${r.ps ? dlt(r.s.resp == null ? null : r.s.resp / 60, r.ps.resp == null ? null : r.ps.resp / 60, true, 'min') : ''}</td></tr>`).join('') + '</tbody></table></div></section>';
+    const cel = (v, d) => `<td><div class="tv">${v}</div>${d}</td>`, sem = '<span class="tdl eq">—</span>';
+    tabelaTime = `<section class="vcard"><h3>Time por atendente</h3><div class="sub">Do menor para o maior CSAT, para ver quem precisa de atenção. A seta mostra a variação em relação à semana anterior: verde melhorou, vermelho piorou. Clique numa linha para abrir só essa pessoa</div><div class="tablewrap" style="border:0"><table style="min-width:560px"><thead><tr><th>Atendente</th><th>Conversas</th><th>CSAT (0 a 5)</th><th>FCR (%)</th><th>1ª resposta (min)</th></tr></thead><tbody>` +
+      rows.map(r => {
+        const pouco = r.s.n < 5, comp = !!r.ps && !pouco && r.ps.n >= 5, fcrOk = comp && comparavel(r.s, r.ps), parc = r.s.share > 0.3;
+        return `<tr data-ag="${esc(r.n)}"><td><div class="tnome"><div class="nav">${avatarByName(r.n)}</div>${esc(r.n)}</div></td>` +
+          `<td><div class="tv">${r.s.n}</div>${pouco ? '<span class="tdl eq">poucos dados</span>' : ''}</td>` +
+          cel(r.s.csat == null ? '—' : r.s.csat.toFixed(2), comp ? dlt(r.s.csat, r.ps.csat, false, '') : sem) +
+          cel(r.s.fcr == null ? '—' : Math.round(r.s.fcr) + '%' + (parc ? '*' : ''), fcrOk ? dlt(r.s.fcr, r.ps.fcr, false, 'pp') : `<span class="tdl eq">${parc ? 'parcial' : '—'}</span>`) +
+          cel(r.s.resp == null ? '—' : minTxt(r.s.resp / 60).replace(' min', ''), comp ? dlt(r.s.resp == null ? null : r.s.resp / 60, r.ps.resp == null ? null : r.ps.resp / 60, true, 'min') : sem) + '</tr>';
+      }).join('') + '</tbody></table></div><p class="note" style="margin:10px 0 0">* FCR parcial: mais de 30% das conversas ainda estão dentro dos 7 dias, por isso não há variação (a semana anterior já fechou). "Poucos dados": menos de 5 conversas, sem comparação.</p></section>';
   }
   const COR = { good: 'var(--good)', bad: 'var(--bad)', warn: 'var(--warn)', info: 'var(--dark)' };
   $('swIns').innerHTML = '<h3>O que mais importa</h3>' + I.slice(0, 4).map(([t, h]) => `<div class="insr"><span class="dot" style="background:${COR[t]}"></span><div>${h}</div></div>`).join('');
@@ -1410,8 +1433,8 @@ function renderSemana() {
 
   /* evolução das últimas 6 semanas */
   const itens = [];
-  for (let k = 5; k >= 0; k--) { const m = addDays(mon, -7 * k), g = inR(base, m, addDays(m, 7)), v = g.length ? avg(g.map(c => c.csat)) : null; itens.push({ label: ddmm(m), value: v, n: g.length, hi: k === 0, tip: `Semana de ${ddmm(m)}: ${v == null ? 'sem dados' : v.toFixed(2)} · ${g.length} conversa(s)` }); }
-  $('swHist').innerHTML = vcard('Como o CSAT evoluiu', 'As últimas 6 semanas, nota de 0 a 5 (a semana escolhida está em destaque)', colChart(itens, { fmt: v => v.toFixed(2), fmtTick: v => fmtN(v), max: 5 }), ['Semana de', 'CSAT', 'Conversas'], itens.map(i => [i.label, i.value == null ? '—' : i.value.toFixed(2), i.n]));
+  for (let k = 5; k >= 0; k--) { const m = addDays(mon, -7 * k), g = inR(base, m, addDays(m, 7)), v = g.length ? avg(g.map(c => c.csat)) : null; itens.push({ label: ddmm(m), value: v, n: g.length, hi: k === 0, lo: g.length > 0 && g.length < 5, tip: `Semana de ${ddmm(m)}: ${v == null ? 'sem dados' : v.toFixed(2)} · ${g.length} conversa(s)${g.length > 0 && g.length < 5 ? ' (poucas, pouco confiável)' : ''}` }); }
+  $('swHist').innerHTML = vcard('Como o CSAT evoluiu', 'As últimas 6 semanas, nota de 0 a 5. A semana escolhida está em destaque escuro; barras claras têm menos de 5 conversas (pouco confiável)', colChart(itens, { fmt: v => v.toFixed(2), fmtTick: v => fmtN(v), max: 5, labelAll: true }), ['Semana de', 'CSAT', 'Conversas'], itens.map(i => [i.label, i.value == null ? '—' : i.value.toFixed(2), i.n]));
 }
 $('swPrev').onclick = () => swMove(-1);
 $('swNext').onclick = () => swMove(1);
