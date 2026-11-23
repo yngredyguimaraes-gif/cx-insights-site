@@ -79,6 +79,45 @@
   .msg{white-space:pre-wrap;word-break:break-word}
   .viewas{width:auto;padding:6px 10px;border-radius:999px;font-size:13px}
   .viewbar{background:var(--dark);color:#fff;border-radius:16px;padding:10px 14px;margin-bottom:12px;font-size:13px}
+  /* dados: gráficos */
+  :root{ --viz:#1e9e57; --viz-soft:rgba(30,158,87,.12); --grid:rgba(35,36,42,.09); --axis:rgba(35,36,42,.28); }
+  .vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:16px}
+  .vsec{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:22px 2px 10px}
+  .vcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 16px 12px}
+  .vcard h3{margin:0;font-size:15px;font-weight:700}
+  .vcard .sub{font-size:12px;color:var(--muted);margin:2px 0 12px}
+  .vempty{padding:30px 0;text-align:center;color:var(--muted);font-size:13px}
+  .cc{display:flex;gap:8px;padding-top:18px}
+  .cy{position:relative;width:34px;height:170px;flex:none}
+  .cy span{position:absolute;right:0;transform:translateY(50%);font-size:11px;color:var(--muted)}
+  .cmain{flex:1;min-width:0}
+  .cplot{position:relative;height:170px}
+  .cgl{position:absolute;left:0;right:0;height:1px;background:var(--grid)}
+  .cgl.base{background:var(--axis)}
+  .cbars{position:absolute;inset:0;display:flex}
+  .cslot{position:relative;flex:1;min-width:0;display:flex;align-items:flex-end;justify-content:center;outline:none}
+  .cbar{width:min(24px,70%);background:var(--viz);border-radius:4px 4px 0 0;min-height:0}
+  .cslot:hover .cbar,.cslot:focus-visible .cbar{filter:brightness(.88)}
+  .cslot:focus-visible{box-shadow:inset 0 0 0 2px var(--dark);border-radius:6px}
+  .clab{position:absolute;font-size:11px;font-weight:600;color:var(--ink);left:50%;transform:translateX(-50%);white-space:nowrap}
+  .cx{display:flex;margin-top:6px}
+  .cx span{flex:1;min-width:0;text-align:center;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rc{display:flex;flex-direction:column;gap:6px}
+  .rrow{display:grid;grid-template-columns:minmax(80px,38%) 1fr;gap:10px;align-items:center;min-height:26px;border-radius:6px;outline:none}
+  .rrow:hover .rbar,.rrow:focus-visible .rbar{filter:brightness(.88)}
+  .rrow:focus-visible{box-shadow:inset 0 0 0 2px var(--dark)}
+  .rname{font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rtrack{position:relative;height:14px}
+  .rbar{position:absolute;left:0;top:0;height:14px;background:var(--viz);border-radius:0 4px 4px 0}
+  .rval{position:absolute;top:50%;transform:translateY(-50%);font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap}
+  details.tv{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+  details.tv summary{cursor:pointer;font-size:12px;color:var(--muted);list-style:none}
+  details.tv summary::-webkit-details-marker{display:none}
+  details.tv summary::before{content:'\25B8  '}
+  details.tv[open] summary::before{content:'\25BE  '}
+  details.tv table{min-width:0;margin-top:8px;font-size:12px}
+  details.tv th,details.tv td{padding:5px 8px;white-space:normal}
+  #tip{position:fixed;z-index:30;pointer-events:none;background:var(--dark);color:#fff;font-size:12px;line-height:1.4;padding:7px 10px;border-radius:8px;max-width:260px;display:none;box-shadow:0 6px 18px rgba(0,0,0,.2)}
   /* drawer */
   #drawer{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;z-index:10}
   #drawer.open{transform:none}
@@ -159,7 +198,7 @@
   <main>
     <div class="tabs">
       <button class="tab on" data-tab="conv">Conversas e CSAT</button>
-      <button class="tab" data-tab="ana">Minha análise</button>
+      <button class="tab" data-tab="ana">Dados</button>
       <button class="tab hidden" id="tabAcc" data-tab="acc">Acessos</button>
     </div>
 
@@ -172,6 +211,10 @@
       <div class="kpis" id="kpis"></div>
       <div class="filters">
         <div class="fgrid">
+          <div><label for="fPeriod">Período (abertura da conversa)</label>
+            <select id="fPeriod"><option value="">Todo o período</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="mes">Este mês</option><option value="mesant">Mês passado</option><option value="custom">Escolher datas…</option></select></div>
+          <div class="cust-c hidden"><label for="fFrom">De</label><input id="fFrom" type="date"></div>
+          <div class="cust-c hidden"><label for="fTo">Até</label><input id="fTo" type="date"></div>
           <div id="agentWrap"><label for="fAgent">Atendente</label><select id="fAgent"></select></div>
           <div><label for="fCsat">Nota de CSAT</label>
             <select id="fCsat"><option value="">Todas</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="low">Baixas (1 a 2)</option><option value="high">Altas (4 a 5)</option></select></div>
@@ -196,26 +239,38 @@
       <p class="note" style="margin-top:12px">Tempos são estimativas: pausas de 12h ou mais (adiamento ou noite) são descontadas. Conversas com menos de 7 dias aparecem como "Em apuração" no FCR.</p>
     </div>
 
-    <!-- aba análise -->
+    <!-- aba dados -->
     <div id="tab-ana" class="hidden">
       <div class="filters">
-        <div class="controls">
+        <div class="fgrid">
+          <div><label for="dPeriod">Período (abertura da conversa)</label>
+            <select id="dPeriod"><option value="">Todo o período</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="mes">Este mês</option><option value="mesant">Mês passado</option><option value="custom">Escolher datas…</option></select></div>
+          <div class="cust-d hidden"><label for="dFrom">De</label><input id="dFrom" type="date"></div>
+          <div class="cust-d hidden"><label for="dTo">Até</label><input id="dTo" type="date"></div>
+          <div id="dAgentWrap"><label for="dAgent">Atendente</label><select id="dAgent"></select></div>
+        </div>
+        <div class="row"><span id="dCount"></span><button class="btn ghost" id="dClear">Limpar filtros</button></div>
+      </div>
+      <div class="kpis" id="dTiles"></div>
+      <div class="vgrid" id="dCharts"></div>
+      <div class="vsec">Monte o seu gráfico</div>
+      <div class="filters">
+        <div class="fgrid">
           <div><label for="aMetric">Métrica</label>
             <select id="aMetric">
               <option value="csat">CSAT médio</option>
               <option value="fcr">% FCR</option>
-              <option value="dur">Tempo de atendimento (min)</option>
-              <option value="first">1ª resposta (min)</option>
-              <option value="gap">Tempo entre respostas (min)</option>
+              <option value="dur">Tempo de atendimento (mediana, h)</option>
+              <option value="first">1ª resposta (mediana, min)</option>
+              <option value="gap">Tempo entre respostas (mediana, min)</option>
               <option value="n">Nº de conversas</option>
             </select></div>
           <div><label for="aGroup">Agrupar por</label>
             <select id="aGroup"><option value="week">Semana</option><option value="day">Dia</option><option value="csat">Nota de CSAT</option></select></div>
-          <div id="aAgentWrap"><label for="aAgent">Atendente</label><select id="aAgent"></select></div>
         </div>
-        <div class="row"><span>A análise usa os mesmos dados da aba de conversas.</span></div>
+        <p class="note" style="margin:10px 0 0">O gráfico usa o período e o atendente escolhidos acima.</p>
       </div>
-      <div class="chart"><strong id="aTitle"></strong><div class="bars" id="bars"></div><div class="xl" id="xl"></div></div>
+      <div class="vgrid" id="dBuilder" style="margin-top:12px"></div>
     </div>
 
     <!-- aba acessos (só liderança) -->
@@ -379,23 +434,26 @@ function applyView() {
   $('viewBar').textContent = sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; volte em "Ver como: eu mesmo".` : '';
   $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider' || sim);
   if (sim && !$('tab-acc').classList.contains('hidden')) { document.querySelector('.tab[data-tab=conv]').click(); }
-  FILTERS.forEach(id => { $(id).value = ''; }); $('aAgent').value = '';
+  FILTERS.forEach(id => { $(id).value = ''; }); $('dAgent').value = '';
   shown = PAGE; closeDrawer(); setupFilters(); render();
 }
 $('viewAs').addEventListener('change', e => { viewAs = e.target.value || null; applyView(); });
 function setupFilters() {
   const show = canSeeAll() && !viewAs;
-  ['agentWrap', 'aAgentWrap'].forEach(id => $(id).classList.toggle('hidden', !show));
+  ['agentWrap', 'dAgentWrap'].forEach(id => $(id).classList.toggle('hidden', !show));
   const names = [...new Set(DATA.map(c => c.agent))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const opts = '<option value="">Todos</option>' + names.map(a => `<option>${esc(a)}</option>`).join('');
-  $('fAgent').innerHTML = opts; $('aAgent').innerHTML = opts;
+  $('fAgent').innerHTML = opts; $('dAgent').innerHTML = opts;
 }
 
 /* ---------- 3) FILTROS E ORDENAÇÃO ---------- */
-const FILTERS = ['fAgent', 'fCsat', 'fFcr', 'fAdi'];
+const FILTERS = ['fPeriod', 'fFrom', 'fTo', 'fAgent', 'fCsat', 'fFcr', 'fAdi'];
 function filtered() {
   const f = { agent: $('fAgent').value, csat: $('fCsat').value, fcr: $('fFcr').value, adi: $('fAdi').value };
+  const [pa, pb] = periodRange('fPeriod', 'fFrom', 'fTo');
   return scope().filter(c => {
+    if (pa && c.date < pa) return false;
+    if (pb && c.date >= pb) return false;
     if (f.agent && c.agent !== f.agent) return false;
     if (f.csat === 'low' && !(c.csat <= 2)) return false;
     if (f.csat === 'high' && !(c.csat >= 4)) return false;
@@ -457,7 +515,7 @@ function render() {
 }
 $('more').onclick = () => { shown += PAGE; render(); };
 FILTERS.forEach(id => $(id).addEventListener('change', () => { shown = PAGE; render(); }));
-$('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); shown = PAGE; render(); };
+$('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); syncPeriod('fPeriod', 'cust-c'); shown = PAGE; render(); };
 
 /* ---------- 4) CONVERSA + CSAT ---------- */
 $('rows').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) openDrawer(DATA.find(c => c.id === tr.dataset.id)); });
@@ -551,31 +609,180 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
   ['conv', 'ana', 'acc'].forEach(k => $('tab-' + k).classList.toggle('hidden', t.dataset.tab !== k || (k === 'conv' && $('loading') && !$('loading').classList.contains('hidden'))));
   closeDrawer();
+  if (t.dataset.tab === 'ana') renderDados();
 });
-const METRICS = {
-  csat: { label: 'CSAT médio', f: l => avg(l.map(c => c.csat)) ?? 0, fmt: v => v.toFixed(2) },
-  fcr: { label: '% FCR', f: l => { const k = l.filter(c => c.fcr === 'sim' || c.fcr === 'nao'); return k.length ? k.filter(c => c.fcr === 'sim').length / k.length * 100 : 0; }, fmt: v => Math.round(v) + '%' },
-  dur: { label: 'Tempo de atendimento (min)', f: l => (avg(nums(l, c => c.dur)) ?? 0) / 60, fmt: v => v.toFixed(1) },
-  first: { label: '1ª resposta (min)', f: l => (avg(nums(l.filter(c => !c.longa), c => c.first)) ?? 0) / 60, fmt: v => v.toFixed(1) },
-  gap: { label: 'Tempo entre respostas (min)', f: l => (avg(nums(l, c => c.gap)) ?? 0) / 60, fmt: v => v.toFixed(1) },
-  n: { label: 'Nº de conversas', f: l => l.length, fmt: v => v }
-};
-['aMetric', 'aGroup', 'aAgent'].forEach(id => $(id).addEventListener('change', renderAnalysis));
-function renderAnalysis() {
-  if (!me) return;
-  const m = METRICS[$('aMetric').value], g = $('aGroup').value, ag = $('aAgent').value;
-  const list = scope().filter(c => !ag || c.agent === ag);
-  const key = c => g === 'csat' ? 'Nota ' + c.csat
-    : g === 'day' ? c.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-    : (() => { const d = new Date(c.date); d.setDate(d.getDate() - d.getDay()); return 'Sem ' + d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); })();
-  const groups = new Map();
-  [...list].sort((a, b) => a.date - b.date).forEach(c => { const k = key(c); (groups.get(k) || groups.set(k, []).get(k)).push(c); });
-  let entries = [...groups.entries()]; if (g === 'day') entries = entries.slice(-14); if (g === 'csat') entries.sort();
-  const vals = entries.map(([k, l]) => [k, m.f(l)]), max = Math.max(...vals.map(v => v[1]), 1);
-  $('aTitle').textContent = `${m.label} por ${g === 'week' ? 'semana' : g === 'day' ? 'dia (últimos 14)' : 'nota de CSAT'}${ag ? ' · ' + ag : ''}`;
-  $('bars').innerHTML = vals.map(([k, v]) => `<div class="bar" style="height:${v / max * 100}%"><b>${m.fmt(v)}</b></div>`).join('');
-  $('xl').innerHTML = vals.map(([k]) => `<span>${esc(k)}</span>`).join('');
+/* ---------- 6) PERÍODO ---------- */
+function periodRange(selId, fromId, toId) {
+  const v = $(selId).value, now = new Date(), day = 864e5;
+  const d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dt = s => { if (!s) return null; const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  if (v === '7') return [new Date(d0 - 6 * day), new Date(+d0 + day)];
+  if (v === '30') return [new Date(d0 - 29 * day), new Date(+d0 + day)];
+  if (v === 'mes') return [new Date(d0.getFullYear(), d0.getMonth(), 1), new Date(+d0 + day)];
+  if (v === 'mesant') return [new Date(d0.getFullYear(), d0.getMonth() - 1, 1), new Date(d0.getFullYear(), d0.getMonth(), 1)];
+  if (v === 'custom') {
+    let a = dt($(fromId).value), b = dt($(toId).value);
+    if (a && b && a > b) [a, b] = [b, a];
+    return [a, b ? new Date(+b + day) : null];
+  }
+  return [null, null];
 }
+const syncPeriod = (sel, cls) => document.querySelectorAll('.' + cls).forEach(e => e.classList.toggle('hidden', $(sel).value !== 'custom'));
+$('fPeriod').addEventListener('change', () => syncPeriod('fPeriod', 'cust-c'));
+$('dPeriod').addEventListener('change', () => syncPeriod('dPeriod', 'cust-d'));
+
+/* ---------- 7) DADOS: gráficos prontos ---------- */
+const median = a => { const s = a.filter(v => v != null).sort((x, y) => x - y); if (!s.length) return null; const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const niceMax = v => { if (!(v > 0)) return 1; const e = Math.pow(10, Math.floor(Math.log10(v))), f = v / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e; };
+const fmtN = v => (Math.round(v * 10) / 10).toLocaleString('pt-BR');
+const fmtHm = h => h == null ? '—' : h >= 1 ? fmtN(h) + ' h' : Math.round(h * 60) + ' min';
+const fmtMin = m => m == null ? '—' : m >= 90 ? fmtN(m / 60) + ' h' : fmtN(m) + ' min';
+const weekStart = d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay());
+const ddmm = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+function dadosList() {
+  const [a, b] = periodRange('dPeriod', 'dFrom', 'dTo'), ag = $('dAgent').value;
+  return scope().filter(c => (!a || c.date >= a) && (!b || c.date < b) && (!ag || c.agent === ag));
+}
+
+/* colunas (série ao longo do tempo ou categorias ordenadas) */
+function colChart(items, o) {
+  const vals = items.map(i => i.value).filter(v => v != null);
+  if (!vals.length) return '<div class="vempty">Sem dados neste período.</div>';
+  const max = o.max || niceMax(Math.max(...vals));
+  const ticks = [0, max / 2, max];
+  const hi = vals.indexOf(Math.max(...vals)), idxMax = items.findIndex(i => i.value === Math.max(...vals));
+  let last = -1; items.forEach((it, i) => { if (it.value != null) last = i; });
+  const mark = new Set([idxMax, last]);
+  const step = items.length > 10 ? 2 : 1;
+  const y = ticks.map(t => `<span style="bottom:${t / max * 100}%">${o.fmtTick ? o.fmtTick(t) : fmtN(t)}</span>`).join('');
+  const gl = ticks.map((t, i) => `<div class="cgl${i === 0 ? ' base' : ''}" style="bottom:${t / max * 100}%"></div>`).join('');
+  const slots = items.map((it, i) => {
+    const pct = it.value == null ? 0 : Math.min(it.value / max * 100, 100);
+    const lab = it.value != null && mark.has(i) ? `<span class="clab" style="bottom:calc(${pct}% + 3px)">${o.fmt(it.value)}</span>` : '';
+    return `<div class="cslot" tabindex="0" role="img" aria-label="${esc(it.tip)}" data-tip="${esc(it.tip)}"><div class="cbar" style="height:${pct}%"></div>${lab}</div>`;
+  }).join('');
+  const xl = items.map((it, i) => `<span>${i % step === 0 ? esc(it.label) : ''}</span>`).join('');
+  return `<div class="cc"><div class="cy">${y}</div><div class="cmain"><div class="cplot">${gl}<div class="cbars">${slots}</div></div><div class="cx">${xl}</div></div></div>`;
+}
+
+/* barras horizontais (ranking de categorias) */
+function rowChart(items, o) {
+  if (!items.length) return '<div class="vempty">Sem dados neste período.</div>';
+  const max = o.max || Math.max(...items.map(i => i.value), 0) || 1;
+  return '<div class="rc">' + items.map(it => {
+    const w = Math.max(it.value / max * 78, 0.5);
+    return `<div class="rrow" tabindex="0" role="img" aria-label="${esc(it.tip)}" data-tip="${esc(it.tip)}"><span class="rname" title="${esc(it.label)}">${esc(it.label)}</span><div class="rtrack"><div class="rbar" style="width:${w}%"></div><span class="rval" style="left:calc(${w}% + 6px)">${o.fmt(it.value)}</span></div></div>`;
+  }).join('') + '</div>';
+}
+
+/* cada gráfico vem com a tabela equivalente */
+function vcard(title, sub, body, head, rows) {
+  const tab = `<details class="tv"><summary>Ver tabela</summary><table><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></details>`;
+  return `<section class="vcard"><h3>${esc(title)}</h3><div class="sub">${esc(sub)}</div>${body}${tab}</section>`;
+}
+
+function weeklySeries(L, f, o) {
+  if (!L.length) return [];
+  const map = new Map();
+  L.forEach(c => { const k = +weekStart(c.date); (map.get(k) || map.set(k, []).get(k)).push(c); });
+  const keys = [...map.keys()].sort((a, b) => a - b), out = [];
+  for (let t = keys[0]; t <= keys[keys.length - 1]; t = +new Date(new Date(t).getFullYear(), new Date(t).getMonth(), new Date(t).getDate() + 7)) {
+    const grp = map.get(t) || [], v = grp.length ? f(grp) : null, d = new Date(t);
+    out.push({ label: ddmm(d), value: v, n: grp.length, tip: `Semana de ${ddmm(d)}: ${v == null ? 'sem dados' : o.fmt(v)} · ${grp.length} conversa(s)` });
+  }
+  return out;
+}
+const seriesCard = (title, sub, items, o) => vcard(title, sub, colChart(items, o), ['Semana de', o.col, 'Conversas'], items.map(i => [i.label, i.value == null ? '—' : o.fmt(i.value), i.n]));
+
+function rankItems(L, key, f, o) {
+  const m = new Map();
+  L.forEach(c => { const k = key(c); (m.get(k) || m.set(k, []).get(k)).push(c); });
+  return [...m.entries()].map(([k, g]) => ({ k, g, v: f(g) })).filter(x => x.v != null && x.g.length >= (o.min || 1))
+    .sort((a, b) => b.v - a.v).slice(0, o.top || 10)
+    .map(x => ({ label: o.short ? shortName(x.k) : x.k, value: x.v, n: x.g.length, tip: `${x.k}: ${o.fmt(x.v)} · ${x.g.length} conversa(s)` }));
+}
+const shortName = n => { const p = String(n).trim().split(/\s+/); return p.length > 2 ? p[0] + ' ' + p[p.length - 1] : n; };
+const csatAvg = g => g.length ? g.reduce((s, c) => s + c.csat, 0) / g.length : null;
+const fcrPct = g => { const k = g.filter(c => c.fcr === 'sim' || c.fcr === 'nao'); return k.length ? k.filter(c => c.fcr === 'sim').length / k.length * 100 : null; };
+const rankCard = (title, sub, items, o) => vcard(title, sub, rowChart(items, o), ['Item', o.col, 'Conversas'], items.map(i => [i.label, o.fmt(i.value), i.n]));
+
+function renderDados() {
+  if (!me) return;
+  const L = dadosList();
+  $('dCount').textContent = `${L.length} conversa(s) no período`;
+  const fcrOk = L.filter(c => c.fcr === 'sim' || c.fcr === 'nao');
+  const mDur = median(L.map(c => c.dur)), mFirst = median(L.filter(c => !c.longa).map(c => c.first));
+  $('dTiles').innerHTML = [
+    ['Conversas', L.length],
+    ['CSAT médio', L.length ? csatAvg(L).toFixed(2) : '—'],
+    ['Notas 4 e 5 (satisfeitos)', L.length ? Math.round(L.filter(c => c.csat >= 4).length / L.length * 100) + '%' : '—'],
+    ['FCR (conversas apuradas)', fcrOk.length ? Math.round(fcrPct(L)) + '%' : '—'],
+    ['Atendimento (mediana)', mDur == null ? '—' : fmtHm(mDur / 3600)],
+    ['1ª resposta (mediana, sem esperas longas)', mFirst == null ? '—' : fmtMin(mFirst / 60)]
+  ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+
+  const cards = [];
+  cards.push(seriesCard('CSAT médio por semana', 'Nota de 0 a 5, pela semana de abertura da conversa', weeklySeries(L, csatAvg, { fmt: v => v.toFixed(2) }), { fmt: v => v.toFixed(2), fmtTick: v => fmtN(v), max: 5, col: 'CSAT médio' }));
+  cards.push(seriesCard('Conversas avaliadas por semana', 'Quantas conversas com CSAT foram abertas em cada semana', weeklySeries(L, g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
+
+  const dist = [1, 2, 3, 4, 5].map(n => { const k = L.filter(c => c.csat === n).length; return { label: 'Nota ' + n, value: k, n: k, tip: `Nota ${n}: ${k} conversa(s) · ${L.length ? Math.round(k / L.length * 100) : 0}%` }; });
+  cards.push(vcard('Como os clientes avaliaram', 'Número de conversas em cada nota de CSAT', colChart(dist, { fmt: v => String(Math.round(v)) }), ['Nota', 'Conversas', '% do total'], dist.map(d => [d.label, d.n, (L.length ? Math.round(d.n / L.length * 100) : 0) + '%'])));
+
+  cards.push(seriesCard('FCR por semana', 'Percentual resolvido sem retorno em 7 dias (só conversas já apuradas)', weeklySeries(L, fcrPct, { fmt: v => Math.round(v) + '%' }), { fmt: v => Math.round(v) + '%', fmtTick: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
+  cards.push(seriesCard('Tempo de atendimento por semana', 'Mediana, sem as pausas de 12h ou mais (estimativa)', weeklySeries(L, g => { const m = median(g.map(c => c.dur)); return m == null ? null : m / 3600; }, { fmt: fmtHm }), { fmt: fmtHm, fmtTick: v => fmtN(v) + ' h', col: 'Mediana' }));
+  cards.push(seriesCard('1ª resposta por semana', 'Mediana, sem as esperas longas', weeklySeries(L, g => { const m = median(g.filter(c => !c.longa).map(c => c.first)); return m == null ? null : m / 60; }, { fmt: fmtMin }), { fmt: fmtMin, fmtTick: v => fmtN(v) + ' min', col: 'Mediana' }));
+
+  const porAtendente = canSeeAll() && !viewAs && !$('dAgent').value;
+  if (porAtendente) {
+    cards.push(rankCard('CSAT médio por atendente', 'Só quem tem 3 conversas ou mais no período', rankItems(L, c => c.agent, csatAvg, { fmt: v => v.toFixed(2), min: 3, short: true }), { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
+    cards.push(rankCard('FCR por atendente', 'Só quem tem 3 conversas apuradas ou mais no período', rankItems(L.filter(c => c.fcr === 'sim' || c.fcr === 'nao'), c => c.agent, fcrPct, { fmt: v => Math.round(v) + '%', min: 3, short: true }), { fmt: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
+  }
+  cards.push(rankCard('Principais motivos', 'Conversas por motivo classificado (os 8 maiores)', rankItems(L, c => c.motivo || 'sem classificação', g => g.length, { fmt: v => String(v), top: 8 }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
+  cards.push(rankCard('Canais', 'Conversas por canal de atendimento', rankItems(L, c => c.canal || 'sem canal', g => g.length, { fmt: v => String(v), top: 6 }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
+  const porFcr = [['FCR sim', L.filter(c => c.fcr === 'sim')], ['FCR não', L.filter(c => c.fcr === 'nao')]].filter(([, g]) => g.length)
+    .map(([k, g]) => ({ label: k, value: csatAvg(g), n: g.length, tip: `${k}: CSAT médio ${csatAvg(g).toFixed(2)} · ${g.length} conversa(s)` }));
+  cards.push(rankCard('A nota muda quando o cliente volta?', 'CSAT médio de quem teve FCR e de quem voltou pelo mesmo motivo', porFcr, { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
+  $('dCharts').innerHTML = cards.join('');
+  renderBuilder(L);
+}
+
+/* gráfico montado pela própria pessoa */
+const BUILD = {
+  csat: { label: 'CSAT médio', f: csatAvg, fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' },
+  fcr: { label: '% FCR', f: fcrPct, fmt: v => Math.round(v) + '%', max: 100, col: '% FCR' },
+  dur: { label: 'Tempo de atendimento (mediana)', f: g => { const m = median(g.map(c => c.dur)); return m == null ? null : m / 3600; }, fmt: fmtHm, col: 'Mediana' },
+  first: { label: '1ª resposta (mediana)', f: g => { const m = median(g.filter(c => !c.longa).map(c => c.first)); return m == null ? null : m / 60; }, fmt: fmtMin, col: 'Mediana' },
+  gap: { label: 'Tempo entre respostas (mediana)', f: g => { const m = median(g.map(c => c.gap)); return m == null ? null : m / 60; }, fmt: fmtMin, col: 'Mediana' },
+  n: { label: 'Nº de conversas', f: g => g.length, fmt: v => String(Math.round(v)), col: 'Conversas' }
+};
+function renderBuilder(L) {
+  const m = BUILD[$('aMetric').value], g = $('aGroup').value;
+  let items;
+  if (g === 'week') items = weeklySeries(L, m.f, { fmt: m.fmt });
+  else if (g === 'day') {
+    const map = new Map();
+    L.forEach(c => { const k = new Date(c.date.getFullYear(), c.date.getMonth(), c.date.getDate()).getTime(); (map.get(k) || map.set(k, []).get(k)).push(c); });
+    items = [...map.entries()].sort((a, b) => a[0] - b[0]).slice(-14).map(([k, grp]) => { const v = m.f(grp); return { label: ddmm(new Date(k)), value: v, n: grp.length, tip: `${ddmm(new Date(k))}: ${v == null ? 'sem dados' : m.fmt(v)} · ${grp.length} conversa(s)` }; });
+  } else items = [1, 2, 3, 4, 5].map(n => { const grp = L.filter(c => c.csat === n), v = grp.length ? m.f(grp) : null; return { label: 'Nota ' + n, value: v, n: grp.length, tip: `Nota ${n}: ${v == null ? 'sem dados' : m.fmt(v)} · ${grp.length} conversa(s)` }; });
+  const por = g === 'week' ? 'semana' : g === 'day' ? 'dia (últimos 14 com dados)' : 'nota de CSAT';
+  $('dBuilder').innerHTML = vcard(`${m.label} por ${por}`, 'Gráfico montado por você', colChart(items, { fmt: m.fmt, max: m.max, fmtTick: m.fmtTick }), [g === 'csat' ? 'Nota' : 'Período', m.col, 'Conversas'], items.map(i => [i.label, i.value == null ? '—' : m.fmt(i.value), i.n]));
+}
+['aMetric', 'aGroup', 'dPeriod', 'dFrom', 'dTo', 'dAgent'].forEach(id => $(id).addEventListener('change', renderDados));
+$('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent'].forEach(id => $(id).value = ''); syncPeriod('dPeriod', 'cust-d'); renderDados(); };
+const renderAnalysis = renderDados;
+
+/* dica ao passar o mouse ou focar (a tabela de cada gráfico traz os mesmos valores) */
+const tip = document.createElement('div'); tip.id = 'tip'; document.body.appendChild(tip);
+const showTip = (el, x, y) => {
+  tip.textContent = el.dataset.tip; tip.style.display = 'block';
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.min(Math.max(8, x + 12), innerWidth - r.width - 8) + 'px';
+  tip.style.top = Math.min(y + 14, innerHeight - r.height - 8) + 'px';
+};
+document.addEventListener('pointermove', e => { const el = e.target.closest && e.target.closest('[data-tip]'); if (el) showTip(el, e.clientX, e.clientY); else tip.style.display = 'none'; });
+document.addEventListener('focusin', e => { const el = e.target.closest && e.target.closest('[data-tip]'); if (el) { const r = el.getBoundingClientRect(); showTip(el, r.left + r.width / 2, r.top); } });
+document.addEventListener('focusout', () => { tip.style.display = 'none'; });
 
 /* sessão já existente (recarregar a página) */
 supa.auth.getSession().then(({ data }) => { if (!data.session) showLogin(); });
