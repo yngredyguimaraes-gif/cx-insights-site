@@ -942,7 +942,8 @@ function renderNotes() {
 }
 
 /* escrever */
-const recipients = () => [...NPEOPLE.values()].filter(p => p.ativo && p.id !== me.id && (me.ve_tudo_anotacoes || p.id === me.lider_direto_id || p.lider_direto_id === me.id))
+const recipients = () => [...NPEOPLE.values()].filter(p => p.ativo && p.id !== me.id && (me.ve_tudo_anotacoes || p.id === me.lider_direto_id || p.lider_direto_id === me.id
+    || (me.perfil === 'lider' && p.perfil === 'lider' && me.lider_direto_id && p.lider_direto_id === me.lider_direto_id)))
   .sort((a, b) => (b.id === me.lider_direto_id) - (a.id === me.lider_direto_id) || a.nome.localeCompare(b.nome, 'pt-BR'));
 function composerHtml(p, comConversa) {
   return `<div class="comp"><div class="cgrid">
