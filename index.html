@@ -972,7 +972,9 @@ function prepComposer(p, getCtx) {
   dest.innerHTML = recipients().map(r => `<option value="${r.id}">${esc(r.nome)}${r.id === actor().lider_direto_id ? ' (liderança direta)' : ''}</option>`).join('') + '<option value="priv">Só para mim (rascunho privado)</option>';
   const lbl = () => { $(p + 'Send').textContent = simulando() ? 'Envio desativado na prévia' : dest.value === 'priv' ? 'Salvar rascunho' : 'Enviar para ' + (NPEOPLE.get(dest.value) || {}).nome; $(p + 'Send').disabled = simulando(); };
   dest.onchange = lbl; lbl();
-  $(p + 'Txt').oninput = () => msg($(p + 'Msg'), '', '');
+  const aviso = 'Você está no modo "Ver como": o envio fica desativado para não sair nada em nome de outra pessoa. Para escrever de verdade, volte em "Ver como: eu mesmo", no topo da página.';
+  if (simulando()) msg($(p + 'Msg'), 'ok', aviso);
+  $(p + 'Txt').oninput = () => { if (!simulando()) msg($(p + 'Msg'), '', ''); };
   $(p + 'Send').onclick = async () => {
     if (simulando()) return;
     const ctx = getCtx(), txt = $(p + 'Txt').value.trim(), priv = dest.value === 'priv', tipo = $(p + 'Tipo').value;
