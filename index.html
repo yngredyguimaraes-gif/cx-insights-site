@@ -436,6 +436,7 @@ function applyView() {
   $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider' || sim);
   if (sim && !$('tab-acc').classList.contains('hidden')) { document.querySelector('.tab[data-tab=conv]').click(); }
   FILTERS.forEach(id => { $(id).value = ''; }); $('dAgent').value = '';
+  resetPeriods();
   shown = PAGE; closeDrawer(); setupFilters(); render();
 }
 $('viewAs').addEventListener('change', e => { viewAs = e.target.value || null; applyView(); });
@@ -504,6 +505,7 @@ function render() {
   ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
   $('count').textContent = `${list.length} conversa(s) encontrada(s)` + (list.length > shown ? ` · mostrando ${shown}` : '');
   $('empty').classList.toggle('hidden', list.length > 0);
+  if (!list.length) { const ult = DATA.length ? DATA.reduce((m, c) => c.date > m ? c.date : m, DATA[0].date) : null; $('empty').textContent = 'Nenhuma conversa com esses filtros.' + (ult ? ' A conversa mais recente carregada é de ' + ult.toLocaleDateString('pt-BR') + '. Escolha "Todo o período" para ver tudo.' : ''); }
   $('rows').innerHTML = list.slice(0, shown).map(c => `<tr data-id="${esc(c.id)}">
     <td><strong>${esc(c.id)}</strong><div style="color:var(--muted);font-size:12px">${esc(c.motivo || 'sem classificação')}</div></td>
     <td>${fmtD(c.date)}</td><td>${esc(c.agent)}</td><td>${sc(c.csat)}</td><td>${fcrTag(c.fcr)}</td>
@@ -516,7 +518,7 @@ function render() {
 }
 $('more').onclick = () => { shown += PAGE; render(); };
 FILTERS.filter(id => !/^f(Period|From|To)$/.test(id)).forEach(id => $(id).addEventListener('change', () => { shown = PAGE; render(); }));
-$('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); shown = PAGE; render(); };
+$('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); setPeriod('fPeriod', 'fFrom', 'fTo', DEFAULT_PERIOD); shown = PAGE; render(); };
 
 /* ---------- 4) CONVERSA + CSAT ---------- */
 $('rows').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) openDrawer(DATA.find(c => c.id === tr.dataset.id)); });
@@ -641,6 +643,13 @@ function bindPeriod(selId, fromId, toId, onChange) {
     onChange();
   }));
 }
+const DEFAULT_PERIOD = '7';   // ao abrir, o site já mostra os últimos 7 dias
+function setPeriod(selId, fromId, toId, v) {
+  $(selId).value = v;
+  const [a, b] = presetRange(v);
+  $(fromId).value = a ? isoDay(a) : ''; $(toId).value = b ? isoDay(b) : '';
+}
+const resetPeriods = () => { setPeriod('fPeriod', 'fFrom', 'fTo', DEFAULT_PERIOD); setPeriod('dPeriod', 'dFrom', 'dTo', DEFAULT_PERIOD); };
 bindPeriod('fPeriod', 'fFrom', 'fTo', () => { shown = PAGE; render(); });
 bindPeriod('dPeriod', 'dFrom', 'dTo', () => renderDados());
 
@@ -783,7 +792,7 @@ function renderBuilder(L) {
   $('dBuilder').innerHTML = vcard(`${m.label} por ${por}`, 'Gráfico montado por você', colChart(items, { fmt: m.fmt, max: m.max, fmtTick: m.fmtTick }), [g === 'csat' ? 'Nota' : 'Período', m.col, 'Conversas'], items.map(i => [i.label, i.value == null ? '—' : m.fmt(i.value), i.n]));
 }
 ['aMetric', 'aGroup', 'dAgent'].forEach(id => $(id).addEventListener('change', renderDados));
-$('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent'].forEach(id => $(id).value = ''); renderDados(); };
+$('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent'].forEach(id => $(id).value = ''); setPeriod('dPeriod', 'dFrom', 'dTo', DEFAULT_PERIOD); renderDados(); };
 const renderAnalysis = renderDados;
 
 /* dica ao passar o mouse ou focar (a tabela de cada gráfico traz os mesmos valores) */
