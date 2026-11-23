@@ -161,6 +161,12 @@
   .kmv button{font-size:12px;padding:3px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;color:inherit}
   .kmv button:hover{background:rgba(35,36,42,.06)}
   .kwip{font-size:12px;color:#7a5600;padding:0 4px 8px}
+  .modal{position:fixed;inset:0;z-index:60;background:rgba(20,20,26,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+  .modal.hidden{display:none}
+  .modalcard{background:var(--card);border-radius:18px;padding:18px 20px;width:100%;max-width:560px;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .sgit{border-top:1px solid var(--line);padding:12px 0}
+  .sgit .ntxt{margin:6px 0}
+  .sgret{background:rgba(75,209,132,.12);border-radius:10px;padding:8px 10px;font-size:13px;margin-top:6px}
   .star{background:none;border:0;cursor:pointer;font-size:17px;line-height:1;padding:0 4px;color:var(--muted);vertical-align:-1px}
   .star.on,.mk.fav{color:#a87400}
   .star.on{color:#d99a00}
@@ -336,6 +342,7 @@
     <span class="pill" id="roleTag"></span>
     <select id="viewAs" class="viewas hidden" aria-label="Ver como" title="Ver como outra pessoa"></select>
     <span class="spacer"></span>
+    <button class="btn ghost" id="sugBtn" type="button" aria-haspopup="dialog" title="Enviar uma melhoria ou um erro" style="width:auto;margin:0">Sugestões</button>
     <button class="btn ghost bellbtn" id="bell" type="button" aria-label="Notificações" aria-haspopup="true" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span id="bellN" class="bn hidden"></span></button>
     <div id="bellPanel" class="bellpanel hidden" role="dialog" aria-label="Notificações"></div>
     <button class="avbtn" id="avBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Meu perfil"><span id="avImg" class="nav" aria-hidden="true"></span><span id="userName"></span></button>
@@ -350,6 +357,7 @@
       <button class="tab" data-tab="ana">Dados</button>
       <button class="tab" id="tabDev" data-tab="dev">Desenvolvimento</button>
       <button class="tab hidden" id="tabAcc" data-tab="acc">Acessos</button>
+      <button class="tab hidden" id="tabSug" data-tab="sug">Sugestões recebidas</button>
     </div>
 
     <div id="viewBar" class="viewbar hidden"></div>
@@ -454,6 +462,15 @@
       <p class="note" style="margin-top:12px">Anotações são para aprendizado e conversa entre as pessoas. Não escreva dados pessoais de clientes (CPF, telefone, endereço).</p>
     </div>
 
+    <!-- aba sugestões recebidas (só o dono do site) -->
+    <div id="tab-sug" class="hidden">
+      <div class="filters"><div class="fgrid">
+        <div><label for="sgfSt">Situação</label><select id="sgfSt"><option value="">Todas</option><option value="nova">Novas</option><option value="em_analise">Em análise</option><option value="feita">Feitas</option><option value="descartada">Descartadas</option></select></div>
+        <div><label for="sgfTp">Tipo</label><select id="sgfTp"><option value="">Todos</option><option value="erro">Erro</option><option value="melhoria">Melhoria</option><option value="outro">Outra ideia</option></select></div>
+      </div><div class="row"><span id="sgCount"></span></div></div>
+      <div class="vcard" id="sgList" style="margin-top:12px"></div>
+    </div>
+
     <!-- aba acessos (só liderança) -->
     <div id="tab-acc" class="hidden acc">
       <div class="filters">
@@ -469,6 +486,20 @@
       </div>
     </div>
   </main>
+  <div id="sugModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="sugTitle">
+    <div class="modalcard">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 id="sugTitle" style="margin:0">Caixa de sugestões</h3><button class="btn ghost" id="sugClose" type="button" style="width:auto;margin:0">Fechar</button></div>
+      <p class="note" style="margin:6px 0 0">Viu um erro ou teve uma ideia? Conte aqui. A mensagem chega direto para quem cuida do site.</p>
+      <label for="sugTipo">O que é?</label>
+      <select id="sugTipo"><option value="melhoria">Melhoria (uma ideia)</option><option value="erro">Erro (algo não funciona)</option><option value="outro">Outra coisa</option></select>
+      <label for="sugTxt">Conte com detalhes</label>
+      <textarea id="sugTxt" rows="5" maxlength="4000" placeholder="O que aconteceu ou o que você gostaria de ver? Se for um erro, diga o que você clicou."></textarea>
+      <p class="note" id="sugPag" style="margin:6px 0 0"></p>
+      <div class="alert" id="sugMsg" role="status"></div>
+      <button class="btn" id="sugSend" type="button" style="width:auto;margin-top:10px;padding:9px 18px">Enviar</button>
+      <div id="sugMine"></div>
+    </div>
+  </div>
 </div>
 
 <!-- detalhe da conversa -->
@@ -554,7 +585,7 @@ supa.auth.onAuthStateChange((event, session) => {
   if (session) setTimeout(() => bootstrap(session), 0); else showLogin();
 });
 function showLogin() {
-  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); MYMARK = new Map(); GTAGS = new Map(); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
+  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); MYMARK = new Map(); GTAGS = new Map(); SUGS = []; sugOpen(false); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
   $('app').classList.add('hidden'); $('login').classList.remove('hidden');
 }
 async function bootstrap(session) {
@@ -607,14 +638,14 @@ async function startApp(rows) {
   DATA = rows || await fetchAll();
   $('loading').classList.add('hidden'); $('tab-sem').classList.remove('hidden');
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'sem'));
-  ['tab-conv', 'tab-ana', 'tab-dev', 'tab-acc'].forEach(id => $(id).classList.add('hidden'));
+  ['tab-conv', 'tab-ana', 'tab-dev', 'tab-acc', 'tab-sug'].forEach(id => $(id).classList.add('hidden'));
   viewAs = null; nbox = 'rec'; nft = null; $('nCompWrap').classList.add('hidden'); $('nCompWrap').innerHTML = '';
   buildViewAs();
   $('viewAs').classList.toggle('hidden', me.perfil !== 'lider'); $('viewAs').value = '';
   applyView();
   loadNotes();
   loadTeamWeekly();
-  loadReviews(); loadMarks();
+  loadReviews(); loadMarks(); $('tabSug').classList.toggle('hidden', !souDono()); loadSugs();
   if (me.perfil === 'lider') loadPeople();
 }
 function applyView() {
@@ -779,7 +810,7 @@ $('dClose').onclick = closeDrawer;
 /* clicar fora do painel fecha a conversa (se houver texto não enviado, pergunta antes) */
 document.addEventListener('pointerdown', e => {
   if (!$('drawer').classList.contains('open')) return;
-  if (e.target.closest('#drawer') || !document.contains(e.target)) return;
+  if (e.target.closest('#drawer, #sugModal') || !document.contains(e.target)) return;
   const pendente = [...$('drawer').querySelectorAll('textarea')].some(t => t.value.trim());
   if (pendente && !confirm('Você tem um texto não enviado nesta conversa. Fechar mesmo assim? O texto será perdido.')) return;
   closeDrawer();
@@ -822,11 +853,12 @@ $('addForm').addEventListener('submit', async e => {
 /* ---------- 6) ABAS + ANÁLISE ---------- */
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
-  ['sem', 'conv', 'ana', 'dev', 'acc'].forEach(k => $('tab-' + k).classList.toggle('hidden', t.dataset.tab !== k || ($('loading') && !$('loading').classList.contains('hidden'))));
+  ['sem', 'conv', 'ana', 'dev', 'acc', 'sug'].forEach(k => $('tab-' + k).classList.toggle('hidden', t.dataset.tab !== k || ($('loading') && !$('loading').classList.contains('hidden'))));
   closeDrawer();
   if (t.dataset.tab === 'ana') renderDados();
   if (t.dataset.tab === 'dev') renderNotes();
   if (t.dataset.tab === 'sem') renderSemana();
+  if (t.dataset.tab === 'sug') loadSugs();
 });
 /* ---------- 6) PERÍODO ---------- */
 const pad2 = n => String(n).padStart(2, '0');
@@ -1867,6 +1899,88 @@ $('dBody').addEventListener('change', e => {
   if (c.checked) addTag(drawerId, c.dataset.dm, c.dataset.g === '1'); else removeTag(drawerId, c.dataset.dm, c.dataset.g === '1');
 });
 document.addEventListener('click', e => { if (dmOpen && !e.target.closest('#dmSel')) { dmOpen = false; const p = $('dmPanel'); if (p) p.classList.add('hidden'); const bt = $('dmBtn'); if (bt) bt.setAttribute('aria-expanded', 'false'); } });
+
+/* ---------- 13) CAIXA DE SUGESTÕES: qualquer pessoa envia; só o dono do site lê tudo e responde ---------- */
+const SUG_T = { melhoria: 'Melhoria', erro: 'Erro', outro: 'Outra ideia' }, SUG_S = { nova: 'Nova', em_analise: 'Em análise', feita: 'Feita', descartada: 'Descartada' };
+const sugCls = t => t === 'erro' ? 'duvida' : t === 'melhoria' ? 'melhoria' : 'analise';
+let SUGS = [];
+const souDono = () => !!me && String(me.email || '').toLowerCase() === 'yngredy.guimaraes@allugator.com';
+const sugCtx = () => {
+  const aba = (document.querySelector('.tab.on') || {}).textContent || '';
+  const conv = $('drawer').classList.contains('open') && drawerId ? ` · conversa ${drawerId}` : '';
+  return (aba + conv).slice(0, 80);
+};
+function sugOpen(on) {
+  $('sugModal').classList.toggle('hidden', !on);
+  if (!on) return;
+  $('sugPag').textContent = 'Vai junto com a sua mensagem: ' + (sugCtx() || 'tela atual') + '.';
+  msg($('sugMsg'), '', ''); renderSugMine(); $('sugTxt').focus();
+}
+function sugBadge() {
+  const novas = SUGS.filter(x => x.status === 'nova').length;
+  $('tabSug').textContent = 'Sugestões recebidas' + (souDono() && novas ? ` (${novas})` : '');
+}
+async function loadSugs() {
+  if (!me) return;
+  const r = await supa.from('sugestoes').select('*').order('criado_em', { ascending: false });
+  if (r.error) return;
+  SUGS = r.data; renderSugMine(); if (souDono()) renderSugAdmin(); sugBadge();
+}
+function renderSugMine() {
+  const box = $('sugMine'); if (!box || !me) return;
+  const L = SUGS.filter(x => x.autor_id === me.id);
+  box.innerHTML = L.length ? `<div style="font-size:12px;font-weight:600;color:var(--muted);margin:18px 0 4px;text-transform:uppercase;letter-spacing:.04em">Suas sugestões (${L.length})</div>` +
+    L.map(x => `<div class="sgit"><div class="nmeta"><span class="tp ${sugCls(x.tipo)}">${SUG_T[x.tipo]}</span><span class="tp analise">${SUG_S[x.status]}</span><span class="when">${hora(new Date(x.criado_em))}</span></div>
+      <div class="ntxt">${esc(x.texto)}</div>${x.retorno ? `<div class="sgret"><b>Retorno:</b> ${esc(x.retorno)}</div>` : ''}${x.status === 'nova' ? `<div class="nact"><button class="lnk" data-sgdel="${x.id}" type="button">Excluir</button></div>` : ''}</div>`).join('') : '';
+}
+async function sugSend() {
+  const txt = $('sugTxt').value.trim(), say = (k, t) => msg($('sugMsg'), k, t);
+  if (txt.length < 3) return say('err', 'Escreva um pouco mais para a gente entender.');
+  $('sugSend').disabled = true;
+  const { data, error } = await supa.from('sugestoes').insert({ autor_id: me.id, tipo: $('sugTipo').value, texto: txt, pagina: sugCtx() || null }).select().single();
+  $('sugSend').disabled = false;
+  if (error) return say('err', 'Não foi possível enviar. ' + error.message);
+  SUGS.unshift(data); $('sugTxt').value = ''; say('ok', 'Enviado. Obrigado! Você acompanha a resposta aqui embaixo.');
+  renderSugMine(); if (souDono()) renderSugAdmin(); sugBadge();
+}
+function renderSugAdmin() {
+  const box = $('sgList'); if (!box) return;
+  const st = $('sgfSt').value, tp = $('sgfTp').value;
+  const L = SUGS.filter(x => (!st || x.status === st) && (!tp || x.tipo === tp));
+  $('sgCount').textContent = `${L.length} sugestão(ões)`;
+  box.innerHTML = L.length ? L.map(x => `<div class="sgit" data-sg="${x.id}"><div class="nmeta"><b>${esc(pname(x.autor_id))}</b><span class="tp ${sugCls(x.tipo)}">${SUG_T[x.tipo]}</span><span class="when">${hora(new Date(x.criado_em))}${x.pagina ? ' · ' + esc(x.pagina) : ''}</span></div>
+    <div class="ntxt">${esc(x.texto)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"><select data-sgst="${x.id}" aria-label="Situação" style="width:auto">${Object.entries(SUG_S).map(([k, l]) => `<option value="${k}" ${x.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <textarea data-sgret="${x.id}" rows="2" maxlength="1000" placeholder="Retorno para quem enviou (opcional)" aria-label="Retorno" style="flex:1;min-width:200px">${esc(x.retorno || '')}</textarea>
+      <button class="btn sm" data-sgsave="${x.id}" type="button" style="width:auto;margin:0">Salvar retorno</button><button class="lnk" data-sgdel="${x.id}" type="button">Excluir</button></div></div>`).join('')
+    : '<div class="vempty">Nenhuma sugestão por aqui.</div>';
+}
+async function sugUpdate(id, patch) {
+  const { data, error } = await supa.from('sugestoes').update(patch).eq('id', id).select().single();
+  if (error) { alert('Não foi possível salvar.'); return false; }
+  const i = SUGS.findIndex(x => x.id === id); if (i >= 0) SUGS[i] = data;
+  sugBadge(); renderSugMine(); return true;
+}
+async function sugDelete(id) {
+  if (!confirm('Excluir esta sugestão? Isso não pode ser desfeito.')) return;
+  const { data, error } = await supa.from('sugestoes').delete().eq('id', id).select('id');
+  if (error || !data || !data.length) { alert('Não foi possível excluir.'); return; }
+  SUGS = SUGS.filter(x => x.id !== id); renderSugMine(); if (souDono()) renderSugAdmin(); sugBadge();
+}
+$('sugBtn').onclick = () => sugOpen(true);
+$('sugClose').onclick = () => sugOpen(false);
+$('sugModal').addEventListener('pointerdown', e => { if (e.target === $('sugModal')) sugOpen(false); });
+$('sugSend').onclick = sugSend;
+$('sugModal').addEventListener('click', e => { const d = e.target.closest('[data-sgdel]'); if (d) sugDelete(d.dataset.sgdel); });
+$('sgfSt').onchange = $('sgfTp').onchange = renderSugAdmin;
+$('sgList').addEventListener('click', async e => {
+  const d = e.target.closest('[data-sgdel]'); if (d) return sugDelete(d.dataset.sgdel);
+  const b = e.target.closest('[data-sgsave]'); if (!b) return;
+  const id = b.dataset.sgsave, t = $('sgList').querySelector(`[data-sgret="${id}"]`);
+  if (await sugUpdate(id, { retorno: t.value.trim() || null })) { b.textContent = 'Salvo'; setTimeout(() => { b.textContent = 'Salvar retorno'; }, 1500); }
+});
+$('sgList').addEventListener('change', e => { const s = e.target.closest('[data-sgst]'); if (s) sugUpdate(s.dataset.sgst, { status: s.value }); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sugModal').classList.contains('hidden')) sugOpen(false); });
 
 /* sessão já existente (recarregar a página) */
 supa.auth.getSession().then(({ data }) => { if (!data.session) showLogin(); });
