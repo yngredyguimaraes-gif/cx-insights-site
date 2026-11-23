@@ -153,6 +153,10 @@
   .bellbtn{position:relative;width:auto;padding:7px 12px;margin:0}
   .bn{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px}
   .dnotes{margin-top:18px}
+  .nav{overflow:hidden}
+  .nav img{width:100%;height:100%;object-fit:cover;display:block}
+  .avbtn{display:flex;align-items:center;gap:8px;background:none;border:0;cursor:pointer;color:inherit;font:inherit;padding:3px 10px 3px 4px;border-radius:999px}
+  .avbtn:hover{background:rgba(35,36,42,.06)}
   .bellpanel{position:fixed;z-index:40;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 36px rgba(0,0,0,.18);max-height:min(70vh,520px);overflow:auto}
   .bphead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px 8px;font-weight:700;font-size:14px}
   .bphead .lnk,.bpfoot .lnk{background:none;border:0;padding:0;font-size:12px;color:var(--muted);text-decoration:underline;cursor:pointer;font-weight:400}
@@ -205,7 +209,7 @@
 <!-- ============ LOGIN ============ -->
 <section id="login">
   <div class="login-box" id="authBox">
-    <h1><span style="font-weight:800;font-size:26px;letter-spacing:-.02em">allu<span style="color:var(--brand)">.</span></span> CX Insights</h1>
+    <h1><span style="font-weight:800;font-size:26px;letter-spacing:-.02em">allu<span style="color:var(--brand)">.</span>CX Insights</span></h1>
     <p>Acompanhe seus atendimentos e as avaliações de CSAT.</p>
     <div class="seg">
       <button type="button" class="segbtn on" data-mode="in">Entrar</button>
@@ -235,13 +239,15 @@
 <!-- ============ APP ============ -->
 <div id="app" class="hidden">
   <header>
-    <span class="logo">allu<i>.</i> <span style="font-weight:500;font-size:14px;color:var(--muted)">CX Insights</span></span>
+    <span class="logo">allu<i>.</i>CX Insights</span>
     <span class="pill" id="roleTag"></span>
     <select id="viewAs" class="viewas hidden" aria-label="Ver como" title="Ver como outra pessoa"></select>
     <span class="spacer"></span>
     <button class="btn ghost bellbtn" id="bell" type="button" aria-label="Notificações" aria-haspopup="true" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span id="bellN" class="bn hidden"></span></button>
     <div id="bellPanel" class="bellpanel hidden" role="dialog" aria-label="Notificações"></div>
-    <span id="userName"></span>
+    <button class="avbtn" id="avBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Meu perfil"><span id="avImg" class="nav" aria-hidden="true"></span><span id="userName"></span></button>
+    <div id="avMenu" class="bellpanel hidden" role="dialog" aria-label="Meu perfil"></div>
+    <input type="file" id="avFile" accept="image/png,image/jpeg,image/webp" class="hidden">
     <button class="btn ghost" id="logout">Sair</button>
   </header>
   <main>
@@ -439,7 +445,7 @@ supa.auth.onAuthStateChange((event, session) => {
   if (session) setTimeout(() => bootstrap(session), 0); else showLogin();
 });
 function showLogin() {
-  me = null; DATA = []; NOTES = []; NPEOPLE = new Map(); clearInterval(notesTimer); closeDrawer();
+  me = null; DATA = []; NOTES = []; NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
   $('app').classList.add('hidden'); $('login').classList.remove('hidden');
 }
 async function bootstrap(session) {
@@ -455,7 +461,7 @@ async function bootstrap(session) {
     }
     me = p;
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
-    $('userName').textContent = me.nome;
+    $('userName').textContent = me.nome; $('avImg').innerHTML = esc(ini(me.nome));
     $('roleTag').textContent = me.perfil === 'lider' ? 'Liderança · vê o time todo' : me.ver_todos ? 'Atendente · vê o time todo' : 'Atendente · vê só os seus dados';
     $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider');
     await startApp();
@@ -648,7 +654,7 @@ async function loadMessages(c) {
 }
 const closeDrawer = () => $('drawer').classList.remove('open');
 $('dClose').onclick = closeDrawer;
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); const bp = $('bellPanel'); if (bp) bp.classList.add('hidden'); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); const bp = $('bellPanel'); if (bp) bp.classList.add('hidden'); const am = $('avMenu'); if (am) am.classList.add('hidden'); } });
 
 /* ---------- 5) ACESSOS (liderança) ---------- */
 async function loadPeople() {
@@ -814,13 +820,20 @@ function rankItems(L, key, f, o) {
   const m = new Map();
   L.forEach(c => { const k = key(c); (m.get(k) || m.set(k, []).get(k)).push(c); });
   return [...m.entries()].map(([k, g]) => ({ k, g, v: f(g) })).filter(x => x.v != null && x.g.length >= (o.min || 1))
-    .sort((a, b) => b.v - a.v).slice(0, o.top || 10)
+    .sort((a, b) => o.asc ? a.v - b.v : b.v - a.v)
     .map(x => ({ label: o.short ? shortName(x.k) : x.k, value: x.v, n: x.g.length, tip: `${x.k}: ${o.fmt(x.v)} · ${x.g.length} conversa(s)` }));
 }
 const shortName = n => { const p = String(n).trim().split(/\s+/); return p.length > 2 ? p[0] + ' ' + p[p.length - 1] : n; };
 const csatAvg = g => g.length ? g.reduce((s, c) => s + c.csat, 0) / g.length : null;
 const fcrPct = g => { const k = g.filter(c => c.fcr === 'sim' || c.fcr === 'nao'); return k.length ? k.filter(c => c.fcr === 'sim').length / k.length * 100 : null; };
-const rankCard = (title, sub, items, o) => vcard(title, sub, rowChart(items, o), ['Item', o.col, 'Conversas'], items.map(i => [i.label, o.fmt(i.value), i.n]));
+const EXPANDED = new Set();
+const rankCard = (title, sub, items, o) => {
+  const key = o.key || title, top = o.top || 10, exp = EXPANDED.has(key), show = exp ? items : items.slice(0, top);
+  const btn = items.length > top ? `<button class="lnk" type="button" data-expand="${esc(key)}" style="margin-top:10px;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0;font-size:12px">${exp ? 'Ver só os ' + top + ' primeiros' : 'Ver todos (' + items.length + ')'}</button>` : '';
+  const sub2 = items.length > top && exp ? sub.replace(/\(os \d+ maiores\)/, '(todos)') : sub;
+  return vcard(title, sub2, rowChart(show, o) + btn, ['Item', o.col, 'Conversas'], items.map(i => [i.label, o.fmt(i.value), i.n]));
+};
+$('dCharts').addEventListener('click', e => { const b = e.target.closest('[data-expand]'); if (!b) return; const k = b.dataset.expand; EXPANDED.has(k) ? EXPANDED.delete(k) : EXPANDED.add(k); renderDados(); });
 
 function renderDados() {
   if (!me) return;
@@ -854,8 +867,9 @@ function renderDados() {
     cards.push(rankCard('CSAT médio por atendente', 'Só quem tem 3 conversas ou mais no período', rankItems(L, c => c.agent, csatAvg, { fmt: v => v.toFixed(2), min: 3, short: true }), { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
     cards.push(rankCard('FCR por atendente', 'Só quem tem 3 conversas apuradas ou mais no período', rankItems(L.filter(c => c.fcr === 'sim' || c.fcr === 'nao'), c => c.agent, fcrPct, { fmt: v => Math.round(v) + '%', min: 3, short: true }), { fmt: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
   }
-  cards.push(rankCard('Principais motivos', 'Conversas por motivo classificado (os 8 maiores)', rankItems(L, c => c.motivo || 'sem classificação', g => g.length, { fmt: v => String(v), top: 8 }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
-  cards.push(rankCard('Canais', 'Conversas por canal de atendimento', rankItems(L, c => c.canal || 'sem canal', g => g.length, { fmt: v => String(v), top: 6 }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
+  cards.push(rankCard('Principais motivos', 'Conversas por motivo classificado (os 8 maiores)', rankItems(L, c => c.motivo || 'sem classificação', g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas', top: 8, key: 'motivos' }));
+  cards.push(rankCard('CSAT médio por motivo', 'Do menor para o maior, para ver onde focar (só motivos com 3 conversas ou mais). Nota de 0 a 5', rankItems(L, c => c.motivo || 'sem classificação', csatAvg, { fmt: v => v.toFixed(2), min: 3, asc: true }), { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio', top: 8, key: 'csat-motivo' }));
+  cards.push(rankCard('Canais', 'Conversas por canal de atendimento', rankItems(L, c => c.canal || 'sem canal', g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas', top: 6, key: 'canais' }));
   const porFcr = [['FCR sim', L.filter(c => c.fcr === 'sim')], ['FCR não', L.filter(c => c.fcr === 'nao')]].filter(([, g]) => g.length)
     .map(([k, g]) => ({ label: k, value: csatAvg(g), n: g.length, tip: `${k}: CSAT médio ${csatAvg(g).toFixed(2)} · ${g.length} conversa(s)` }));
   cards.push(rankCard('A nota muda quando o cliente volta?', 'CSAT médio de quem teve FCR e de quem voltou pelo mesmo motivo', porFcr, { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
@@ -916,7 +930,7 @@ const ini = n => String(n).trim().split(/\s+/).filter(Boolean).map(w => w[0]).sl
 async function loadNotes() {
   if (!me) return;
   try {
-    const pe = await supa.from('atendentes').select('id,nome,perfil,ativo,lider_direto_id,ve_tudo_anotacoes');
+    const pe = await supa.from('atendentes').select('id,nome,perfil,ativo,lider_direto_id,ve_tudo_anotacoes,foto_path');
     if (pe.error) throw pe.error;
     NPEOPLE = new Map(pe.data.map(p => [p.id, p]));
     let all = [], from = 0;
@@ -929,7 +943,8 @@ async function loadNotes() {
     }
     NOTES = all;
   } catch (e) { $('nList').textContent = 'Não foi possível carregar as anotações: ' + (e.message || e); return; }
-  updateBell(); renderNotes(); if ($('drawer').classList.contains('open') && drawerId) renderDrawerNotes();
+  updateBell(); renderNotes(); if ($('drawer').classList.contains('open') && drawerId) renderDrawerNotes(true);
+  loadAvatars();
   clearInterval(notesTimer); notesTimer = setInterval(() => { if (me) loadNotes(); }, 60000);
 }
 const isRec = n => me && n.para_id === actor().id && !n.privado && n.de_id !== actor().id;
@@ -949,8 +964,8 @@ function noteItem(n, box) {
     ? `<select data-st="${n.id}" aria-label="Situação do ponto de melhoria">${STATUS.map(([k, l]) => `<option value="${k}" ${n.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`
     : (n.tipo === 'melhoria' && n.status ? `<span class="tp analise">${STATUS_L[n.status]}</span>` : '');
   const conv = n.conversation_id ? `<a data-conv="${esc(n.conversation_id)}">Abrir conversa …${esc(n.conversation_id.slice(-8))}</a>` : '<span>Sem conversa ligada</span>';
-  const apagar = n.privado && !simulando() ? `<button class="lnk" data-del="${n.id}" type="button">Apagar rascunho</button>` : '';
-  return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${esc(ini(n.privado ? actor().nome : pname(outro)))}</div><div style="flex:1;min-width:0">
+  const apagar = n.de_id === actor().id && !simulando() ? `<button class="lnk" data-del="${n.id}" type="button">${n.privado ? 'Apagar rascunho' : 'Excluir'}</button>` : '';
+  return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${n.privado ? avatarHtml(actor().id, actor().nome) : avatarHtml(outro, pname(outro))}</div><div style="flex:1;min-width:0">
     <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}</div>
     ${n.trecho ? `<div class="nquote">${esc(n.trecho)}</div>` : ''}<div class="ntxt">${esc(n.texto)}</div>
     <div class="nact">${conv}${status}${apagar}</div></div></div>`;
@@ -1022,7 +1037,7 @@ function prepComposer(p, getCtx) {
     NOTES.unshift(data); $(p + 'Txt').value = '';
     if (ctx.clearQuote) ctx.clearQuote();
     msg($(p + 'Msg'), 'ok', priv ? 'Rascunho salvo. Só você vê.' : 'Anotação enviada para ' + pname(data.para_id) + '.');
-    updateBell(); renderNotes(); if (p === 'nd') renderDrawerNotes(true);
+    updateBell(); renderNotes(); if (p === 'nd') renderDrawerNotes();
   };
 }
 $('nNew').onclick = () => {
@@ -1034,15 +1049,19 @@ $('nNew').onclick = () => {
 /* anotações dentro da conversa */
 let drawerQuote = '';
 function renderQuote(p, t) { $(p + 'Quote').innerHTML = t ? `<span class="qchip">Trecho: ${esc(t.slice(0, 80))}${t.length > 80 ? '…' : ''}<a data-rmq="1">remover</a></span>` : ''; }
-function renderDrawerNotes(keepMsg) {
+function renderDrawerNotes(force) {
   const box = $('dNotes'); if (!box || !me || !drawerId) return;
+  if (!$('dNotesList')) box.innerHTML = '<div id="dNotesList"></div><div id="dNotesComp"></div>';
   const L = NOTES.filter(n => n.conversation_id === drawerId && (!n.privado || n.de_id === actor().id));
-  const msgHtml = keepMsg && $('ndMsg') ? $('ndMsg').outerHTML : '';
-  box.innerHTML = `<div class="vsecs" style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em">Anotações desta conversa (${L.length})</div>` +
-    (L.length ? L.map(n => noteItem(n, isTime(n) ? 'time' : n.de_id === actor().id ? 'env' : 'rec')).join('') : '<p class="note">Ainda não há anotações aqui. Use "Anotar trecho" nas mensagens para citar uma parte da conversa.</p>') + composerHtml('nd', false);
-  prepComposer('nd', () => ({ conv: drawerId, quote: drawerQuote, clearQuote: () => { drawerQuote = ''; renderQuote('nd', ''); } }));
-  renderQuote('nd', drawerQuote);
-  if (msgHtml) { const m = $('ndMsg'); m.outerHTML = msgHtml; }
+  $('dNotesList').innerHTML = `<div class="vsecs" style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em">Anotações desta conversa (${L.length})</div>` +
+    (L.length ? L.map(n => noteItem(n, isTime(n) ? 'time' : n.de_id === actor().id ? 'env' : 'rec')).join('') : '<p class="note">Ainda não há anotações aqui. Use "Anotar trecho" nas mensagens para citar uma parte da conversa.</p>');
+  /* o campo de escrever só é montado de novo se estiver vazio, para nunca apagar o que a pessoa está digitando */
+  if (force && $('ndTxt') && !$('ndTxt').value.trim()) $('dNotesComp').innerHTML = '';
+  if (!$('ndTxt')) {
+    $('dNotesComp').innerHTML = composerHtml('nd', false);
+    prepComposer('nd', () => ({ conv: drawerId, quote: drawerQuote, clearQuote: () => { drawerQuote = ''; renderQuote('nd', ''); } }));
+    renderQuote('nd', drawerQuote);
+  }
 }
 
 /* cliques */
@@ -1056,9 +1075,12 @@ async function noteClick(e) {
   if (simulando()) return;
   const del = e.target.closest('[data-del]');
   if (del) {
-    if (!confirm('Apagar este rascunho? Isso não pode ser desfeito.')) return;
-    const { error } = await supa.from('anotacoes').delete().eq('id', del.dataset.del);
-    if (!error) { NOTES = NOTES.filter(n => n.id !== del.dataset.del); renderNotes(); renderDrawerNotes(); updateBell(); }
+    const n = NOTES.find(x => x.id === del.dataset.del); if (!n) return;
+    const ask = n.privado ? 'Apagar este rascunho? Isso não pode ser desfeito.' : `Excluir esta anotação? Ela some também para ${pname(n.para_id)} e para quem acompanha. Isso não pode ser desfeito.`;
+    if (!confirm(ask)) return;
+    const { data, error } = await supa.from('anotacoes').delete().eq('id', n.id).select('id');
+    if (error || !data || !data.length) { alert('Não foi possível excluir a anotação.'); return; }
+    NOTES = NOTES.filter(x => x.id !== n.id); renderNotes(); renderDrawerNotes(); updateBell();
     return;
   }
   if (e.target.closest('select') || e.target.closest('a') || e.target.closest('button')) return;
@@ -1088,7 +1110,7 @@ function renderBell() {
   const box = $('bellPanel'); if (!box || !me) return;
   const L = recReal().sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em)), novas = L.filter(n => !n.lida_em).length;
   box.innerHTML = `<div class="bphead"><span>Notificações${novas ? ` · ${novas} nova${novas > 1 ? 's' : ''}` : ''}</span>${novas ? '<button class="lnk" type="button" data-all="1">Marcar tudo como lida</button>' : ''}</div>` +
-    (L.length ? L.slice(0, 8).map(n => `<button class="bpit${n.lida_em ? '' : ' novo'}" type="button" data-nid="${n.id}"><div class="nav">${esc(ini(pname(n.de_id)))}</div><div style="flex:1;min-width:0"><div class="t"><b>${esc(pname(n.de_id))}</b> enviou ${/^[aeiou]/i.test(TIPO_L[n.tipo]) ? 'uma' : 'um'} <b>${esc(TIPO_L[n.tipo].toLowerCase())}</b>: ${esc(n.texto)}</div><div class="w">${hora(new Date(n.criado_em))}${n.lida_em ? '' : ' · nova'}</div></div></button>`).join('')
+    (L.length ? L.slice(0, 8).map(n => `<button class="bpit${n.lida_em ? '' : ' novo'}" type="button" data-nid="${n.id}"><div class="nav">${avatarHtml(n.de_id, pname(n.de_id))}</div><div style="flex:1;min-width:0"><div class="t"><b>${esc(pname(n.de_id))}</b> enviou ${/^[aeiou]/i.test(TIPO_L[n.tipo]) ? 'uma' : 'um'} <b>${esc(TIPO_L[n.tipo].toLowerCase())}</b>: ${esc(n.texto)}</div><div class="w">${hora(new Date(n.criado_em))}${n.lida_em ? '' : ' · nova'}</div></div></button>`).join('')
       : '<div class="bpempty">Você não tem notificações por enquanto. Quando alguém enviar uma anotação para você, ela aparece aqui.</div>') +
     `<div class="bpfoot"><button class="lnk" type="button" data-todas="1">Ver todas em Desenvolvimento</button></div>`;
 }
@@ -1126,6 +1148,84 @@ $('bellPanel').addEventListener('click', async e => {
 });
 document.addEventListener('click', e => { if (!$('bellPanel').classList.contains('hidden') && !e.target.closest('#bellPanel')) bellOpen(false); });
 addEventListener('resize', () => bellOpen(false));
+
+/* ---------- 9) FOTO DE PERFIL ---------- */
+let AVATAR = new Map(), avSig = '', avAt = 0;       // id da pessoa -> endereço temporário da foto
+const avatarHtml = (id, nome) => AVATAR.has(id) ? `<img src="${esc(AVATAR.get(id))}" alt="">` : esc(ini(nome));
+function paintAvatars() { if (!me) return; $('avImg').innerHTML = avatarHtml(me.id, me.nome); renderNotes(); renderBell(); renderDrawerNotes(); if (!$('avMenu').classList.contains('hidden')) avMenuRender(); }
+async function loadAvatars() {
+  if (!me) return;
+  const ps = [...NPEOPLE.values()].filter(p => p.foto_path);
+  if (me.foto_path && !ps.some(p => p.id === me.id)) ps.push({ id: me.id, foto_path: me.foto_path });
+  if (!ps.length) { const eraVazio = AVATAR.size === 0; AVATAR = new Map(); avSig = ''; avAt = Date.now(); if (!eraVazio) paintAvatars(); return; }
+  const sig = ps.map(p => p.id + ':' + p.foto_path).join('|');
+  if (sig === avSig && Date.now() - avAt < 45 * 60000) return;     // nada mudou e os endereços ainda valem
+  const { data, error } = await supa.storage.from('avatars').createSignedUrls(ps.map(p => p.foto_path), 3600);
+  if (error) return;
+  AVATAR = new Map(); data.forEach((d, i) => { if (d.signedUrl) AVATAR.set(ps[i].id, d.signedUrl); });
+  avSig = sig; avAt = Date.now(); paintAvatars();
+}
+function resizeSquare(file, size) {
+  return new Promise((ok, fail) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const side = Math.min(img.width, img.height), c = document.createElement('canvas');
+      c.width = c.height = size;
+      c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? ok(b) : fail(new Error('falhou')), 'image/jpeg', 0.85);   // recodificar tira os dados escondidos da foto
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); fail(new Error('falhou')); };
+    img.src = url;
+  });
+}
+function avMenuRender() {
+  const tem = !!AVATAR.get(me.id);
+  $('avMenu').innerHTML = `<div class="bphead"><span>${esc(me.nome)}</span></div><div style="padding:0 14px 14px">
+    <div style="display:flex;align-items:center;gap:12px"><div class="nav" style="width:56px;height:56px;font-size:18px">${avatarHtml(me.id, me.nome)}</div><div style="font-size:12px;color:var(--muted)">${esc($('roleTag').textContent)}</div></div>
+    <div class="nact" style="margin-top:12px"><button class="btn" type="button" data-av="change" style="width:auto;margin:0;padding:8px 14px">${tem ? 'Trocar foto' : 'Adicionar foto'}</button>${tem ? '<button class="lnk" type="button" data-av="remove">Remover foto</button>' : ''}</div>
+    <div class="alert" id="avMsg" role="status"></div>
+    <p class="note" style="margin:10px 0 0">A foto aparece para o time nas anotações e notificações. Use uma imagem sua; ela é reduzida e recortada em quadrado antes de enviar.</p></div>`;
+}
+function avOpen(on) {
+  const box = $('avMenu'); box.classList.toggle('hidden', !on); $('avBtn').setAttribute('aria-expanded', on ? 'true' : 'false');
+  if (!on) return;
+  avMenuRender();
+  const w = Math.min(320, innerWidth - 16), r = $('avBtn').getBoundingClientRect();
+  box.style.width = w + 'px'; box.style.top = (r.bottom + 8) + 'px'; box.style.left = Math.min(Math.max(8, r.right - w), innerWidth - w - 8) + 'px';
+}
+async function avUpload(file) {
+  const m = $('avMsg'); msg(m, '', '');
+  if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return msg(m, 'err', 'Escolha uma imagem PNG, JPG ou WebP.');
+  if (file.size > 10 * 1024 * 1024) return msg(m, 'err', 'A imagem é grande demais. Escolha uma de até 10 MB.');
+  let blob;
+  try { blob = await resizeSquare(file, 256); } catch (e) { return msg(m, 'err', 'Não foi possível ler essa imagem.'); }
+  const path = `${me.id}/${Date.now()}.jpg`, antigo = me.foto_path;
+  const up = await supa.storage.from('avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+  if (up.error) return msg(m, 'err', 'Não foi possível enviar a foto. ' + up.error.message);
+  const { error } = await supa.from('atendentes').update({ foto_path: path }).eq('id', me.id);
+  if (error) { await supa.storage.from('avatars').remove([path]); return msg(m, 'err', 'Não foi possível salvar a foto. ' + error.message); }
+  if (antigo) supa.storage.from('avatars').remove([antigo]);
+  me.foto_path = path; if (NPEOPLE.has(me.id)) NPEOPLE.get(me.id).foto_path = path;
+  avSig = ''; await loadAvatars(); avMenuRender(); msg($('avMsg'), 'ok', 'Foto atualizada.');
+}
+async function avRemove() {
+  const antigo = me.foto_path; if (!antigo) return;
+  const { error } = await supa.from('atendentes').update({ foto_path: null }).eq('id', me.id);
+  if (error) return msg($('avMsg'), 'err', 'Não foi possível remover a foto. ' + error.message);
+  supa.storage.from('avatars').remove([antigo]);
+  me.foto_path = null; if (NPEOPLE.has(me.id)) NPEOPLE.get(me.id).foto_path = null;
+  avSig = ''; await loadAvatars(); avMenuRender(); msg($('avMsg'), 'ok', 'Foto removida.');
+}
+$('avBtn').onclick = e => { e.stopPropagation(); avOpen($('avMenu').classList.contains('hidden')); };
+$('avMenu').addEventListener('click', e => {
+  e.stopPropagation();
+  const b = e.target.closest('[data-av]'); if (!b) return;
+  if (b.dataset.av === 'change') $('avFile').click(); else avRemove();
+});
+$('avFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) avUpload(f); };
+document.addEventListener('click', e => { if (!$('avMenu').classList.contains('hidden') && !e.target.closest('#avMenu')) avOpen(false); });
+addEventListener('resize', () => avOpen(false));
 
 /* sessão já existente (recarregar a página) */
 supa.auth.getSession().then(({ data }) => { if (!data.session) showLogin(); });
