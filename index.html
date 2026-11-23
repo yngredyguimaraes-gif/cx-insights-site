@@ -172,6 +172,30 @@
   .bpfoot{padding:10px 14px;border-top:1px solid var(--line);text-align:center}
   .flash{animation:flash 1.6s ease-out}
   @keyframes flash{0%{background:rgba(75,209,132,.45)}100%{background:transparent}}
+  /* minha semana */
+  .kd{font-size:12px;margin-top:4px;line-height:1.3}
+  .kd.good{color:#7fe3a8}.kd.bad{color:#ff9aa2}.kd.eq{color:rgba(255,255,255,.7)}
+  .sq{width:auto;margin:0;padding:6px 14px;font-size:18px;line-height:1}
+  .sq:disabled{opacity:.35;cursor:not-allowed}
+  .swk{font-weight:700;font-size:18px}.swsub{font-size:12px;color:var(--muted)}
+  .dstrip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:10px}
+  .dbtn{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 4px;cursor:pointer;color:inherit;font:inherit;text-align:center}
+  .dbtn:hover{border-color:var(--muted)}
+  .dbtn.on{border:2px solid var(--dark);padding:7px 3px}
+  .dbtn .dn{font-size:11px;color:var(--muted);text-transform:uppercase}
+  .dbtn .dd{font-weight:700;font-size:15px}
+  .dbtn .dbar{height:44px;display:flex;align-items:flex-end;justify-content:center;margin:6px 0 2px}
+  .dbtn .dbar i{display:block;width:16px;background:var(--viz);border-radius:4px 4px 0 0}
+  .dbtn .dc{font-size:12px;font-weight:700}.dbtn .dq{font-size:11px;color:var(--muted)}
+  .insr{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;line-height:1.45}
+  .insr .dot{width:9px;height:9px;border-radius:50%;margin-top:6px;flex:none}
+  .revrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;flex-wrap:wrap}
+  .cbar.hi{background:var(--dark)}
+  .dl{font-size:11px;margin-left:6px;font-weight:600}.dl.good{color:var(--good)}.dl.bad{color:var(--bad)}.dl.eq{color:var(--muted)}
+  tr[data-ag]{cursor:pointer}
+  tr[data-ag]:hover{background:rgba(35,36,42,.04)}
+  .tnome{display:flex;align-items:center;gap:8px}
+  .tnome .nav{width:26px;height:26px;font-size:11px}
   /* drawer */
   #drawer{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;z-index:10}
   #drawer.open{transform:none}
@@ -255,7 +279,8 @@
   </header>
   <main>
     <div class="tabs">
-      <button class="tab on" data-tab="conv">Conversas e CSAT</button>
+      <button class="tab on" data-tab="sem">Minha semana</button>
+      <button class="tab" data-tab="conv">Conversas e CSAT</button>
       <button class="tab" data-tab="ana">Dados</button>
       <button class="tab" id="tabDev" data-tab="dev">Desenvolvimento</button>
       <button class="tab hidden" id="tabAcc" data-tab="acc">Acessos</button>
@@ -264,6 +289,31 @@
     <div id="viewBar" class="viewbar hidden"></div>
     <div id="loading" class="loading">Carregando suas conversas…</div>
     <div id="loadError" class="alert err"></div>
+
+    <!-- aba minha semana (página inicial) -->
+    <div id="tab-sem" class="hidden">
+      <div class="filters">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn ghost sq" id="swPrev" type="button" aria-label="Anterior">‹</button>
+            <div><div class="swk" id="swTitle"></div><div class="swsub" id="swSub"></div></div>
+            <button class="btn ghost sq" id="swNext" type="button" aria-label="Próximo">›</button>
+          </div>
+          <div class="nbar"><button type="button" class="nb on" id="swModeW">Semana</button><button type="button" class="nb" id="swModeD">Dia</button></div>
+        </div>
+        <div class="fgrid" style="margin-top:12px">
+          <div id="swAgentWrap" class="hidden"><label for="swAgent">Atendente</label><select id="swAgent"></select></div>
+          <div id="swCmpWrap"><label for="swCmp">Comparar com</label><select id="swCmp"><option value="prev">Semana anterior</option><option value="team">Média do time</option></select></div>
+        </div>
+      </div>
+      <div class="kpis" id="swTiles" style="margin-top:12px"></div>
+      <section class="vcard" id="swDays"></section>
+      <section class="vcard" id="swIns" style="margin-top:12px"></section>
+      <div id="swTeam" style="margin-top:12px"></div>
+      <section class="vcard" id="swRev" style="margin-top:12px"></section>
+      <div id="swHist" style="margin-top:12px"></div>
+      <p class="note" style="margin-top:12px">A semana vai de segunda a domingo. FCR inclui conversas ainda dentro dos 7 dias ("parcial"), que podem mudar. Tempos são estimativas: pausas de 12h ou mais são descontadas.</p>
+    </div>
 
     <!-- aba conversas -->
     <div id="tab-conv" class="hidden">
@@ -375,7 +425,9 @@ let me = null;        // linha da pessoa logada (tabela atendentes)
 let DATA = [];        // conversas visíveis para ela (o banco já filtra)
 let PEOPLE = [];      // lista de acessos (só liderança)
 let viewAs = null;    // liderança vendo a tela como uma atendente (só simula a tela)
-const scope = () => viewAs ? DATA.filter(c => c.agent === viewAs) : DATA;
+const scope = () => viewAs && !simSeesAll() ? DATA.filter(c => c.agent === viewAs) : DATA;
+const simSeesAll = () => { const p = simPerson(); return !!p && (p.perfil === 'lider' || !!p.ver_todos); };
+const seesAllNow = () => viewAs ? simSeesAll() : (me.perfil === 'lider' || !!me.ver_todos);
 
 /* ---------- 1) LOGIN ---------- */
 let mode = 'in';
@@ -480,36 +532,38 @@ const canSeeAll = () => me.perfil === 'lider' || me.ver_todos;
 async function startApp(rows) {
   $('loading').classList.remove('hidden'); msg($('loadError'), '', '');
   DATA = rows || await fetchAll();
-  $('loading').classList.add('hidden'); $('tab-conv').classList.remove('hidden');
-  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'conv'));
-  ['tab-ana', 'tab-dev', 'tab-acc'].forEach(id => $(id).classList.add('hidden'));
+  $('loading').classList.add('hidden'); $('tab-sem').classList.remove('hidden');
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'sem'));
+  ['tab-conv', 'tab-ana', 'tab-dev', 'tab-acc'].forEach(id => $(id).classList.add('hidden'));
   viewAs = null; nbox = 'rec'; nft = null; $('nCompWrap').classList.add('hidden'); $('nCompWrap').innerHTML = '';
-  const nomes = [...new Set(DATA.map(c => c.agent))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  $('viewAs').innerHTML = '<option value="">Ver como: eu mesmo</option>' + nomes.map(n => `<option value="${esc(n)}">Ver como: ${esc(n)}</option>`).join('');
+  buildViewAs();
   $('viewAs').classList.toggle('hidden', me.perfil !== 'lider'); $('viewAs').value = '';
   applyView();
   loadNotes();
+  loadTeamWeekly();
   if (me.perfil === 'lider') loadPeople();
 }
 function applyView() {
   const sim = !!viewAs;
   $('viewBar').classList.toggle('hidden', !sim);
-  $('viewBar').textContent = sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : '';
+  $('viewBar').textContent = sim && simSeesAll() ? `Você está vendo a tela como ${viewAs} (liderança): o time todo, como essa pessoa veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : '';
   $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider' || sim);
-  if (sim && !$('tab-acc').classList.contains('hidden')) { document.querySelector('.tab[data-tab=conv]').click(); }
+  if (sim && !$('tab-acc').classList.contains('hidden')) { document.querySelector('.tab[data-tab=sem]').click(); }
   nbox = 'rec'; nft = null; $('nCompWrap').classList.add('hidden'); $('nCompWrap').innerHTML = '';
   if (NPEOPLE) renderNotes();
   FILTERS.forEach(id => { $(id).value = ''; }); $('dAgent').value = '';
   resetPeriods();
   shown = PAGE; closeDrawer(); setupFilters(); render();
+  document.querySelector('.tab[data-tab=sem]').textContent = seesAllNow() ? 'Resumo da semana' : 'Minha semana';
+  swInit(); renderSemana();
 }
 $('viewAs').addEventListener('change', e => { viewAs = e.target.value || null; applyView(); });
 function setupFilters() {
-  const show = canSeeAll() && !viewAs;
+  const show = seesAllNow();
   ['agentWrap', 'dAgentWrap'].forEach(id => $(id).classList.toggle('hidden', !show));
   const names = [...new Set(DATA.map(c => c.agent))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const opts = '<option value="">Todos</option>' + names.map(a => `<option>${esc(a)}</option>`).join('');
-  $('fAgent').innerHTML = opts; $('dAgent').innerHTML = opts;
+  $('fAgent').innerHTML = opts; $('dAgent').innerHTML = opts; $('swAgent').innerHTML = opts;
 }
 
 /* ---------- 3) FILTROS E ORDENAÇÃO ---------- */
@@ -680,10 +734,11 @@ $('addForm').addEventListener('submit', async e => {
 /* ---------- 6) ABAS + ANÁLISE ---------- */
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
-  ['conv', 'ana', 'dev', 'acc'].forEach(k => $('tab-' + k).classList.toggle('hidden', t.dataset.tab !== k || (k === 'conv' && $('loading') && !$('loading').classList.contains('hidden'))));
+  ['sem', 'conv', 'ana', 'dev', 'acc'].forEach(k => $('tab-' + k).classList.toggle('hidden', t.dataset.tab !== k || ($('loading') && !$('loading').classList.contains('hidden'))));
   closeDrawer();
   if (t.dataset.tab === 'ana') renderDados();
   if (t.dataset.tab === 'dev') renderNotes();
+  if (t.dataset.tab === 'sem') renderSemana();
 });
 /* ---------- 6) PERÍODO ---------- */
 const pad2 = n => String(n).padStart(2, '0');
@@ -730,7 +785,7 @@ const niceMax = v => { if (!(v > 0)) return 1; const e = Math.pow(10, Math.floor
 const fmtN = v => (Math.round(v * 10) / 10).toLocaleString('pt-BR');
 const fmtHm = h => h == null ? '—' : h >= 1 ? fmtN(h) + ' h' : Math.round(h * 60) + ' min';
 const fmtMin = m => m == null ? '—' : m >= 90 ? fmtN(m / 60) + ' h' : fmtN(m) + ' min';
-const weekStart = d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay());
+const weekStart = d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));   // segunda-feira
 const ddmm = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
 function dadosList() {
@@ -753,7 +808,7 @@ function colChart(items, o) {
   const slots = items.map((it, i) => {
     const pct = it.value == null ? 0 : Math.min(it.value / max * 100, 100);
     const lab = it.value != null && mark.has(i) ? `<span class="clab" style="bottom:calc(${pct}% + 3px)">${o.fmt(it.value)}</span>` : '';
-    return `<div class="cslot" tabindex="0" role="img" aria-label="${esc(it.tip)}" data-tip="${esc(it.tip)}"><div class="cbar" style="height:${pct}%"></div>${lab}</div>`;
+    return `<div class="cslot" tabindex="0" role="img" aria-label="${esc(it.tip)}" data-tip="${esc(it.tip)}"><div class="cbar${it.hi ? ' hi' : ''}" style="height:${pct}%"></div>${lab}</div>`;
   }).join('');
   const xl = items.map((it, i) => `<span>${i % step === 0 ? esc(it.label) : ''}</span>`).join('');
   return `<div class="cc"><div class="cy">${y}</div><div class="cmain"><div class="cplot">${gl}<div class="cbars">${slots}</div></div><div class="cx">${xl}</div></div></div>`;
@@ -850,7 +905,7 @@ function renderDados() {
   cards.push(seriesCard(`Tempo de atendimento por ${u}`, 'Mediana, sem as pausas de 12h ou mais (estimativa)', weeklySeries(L, g => { const m = median(g.map(c => c.dur)); return m == null ? null : m / 3600; }, { fmt: fmtHm }), { fmt: fmtHm, fmtTick: v => fmtN(v) + ' h', col: 'Mediana' }));
   cards.push(seriesCard(`1ª resposta por ${u}`, 'Mediana, sem as esperas longas', weeklySeries(L, g => { const m = median(g.filter(c => !c.longa).map(c => c.first)); return m == null ? null : m / 60; }, { fmt: fmtMin }), { fmt: fmtMin, fmtTick: v => fmtN(v) + ' min', col: 'Mediana' }));
 
-  const porAtendente = canSeeAll() && !viewAs && !$('dAgent').value;
+  const porAtendente = seesAllNow() && !$('dAgent').value;
   if (porAtendente) {
     cards.push(rankCard('CSAT médio por atendente', 'Só quem tem 3 conversas ou mais no período', rankItems(L, c => c.agent, csatAvg, { fmt: v => v.toFixed(2), min: 3, short: true }), { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
     cards.push(rankCard('FCR por atendente', 'Só quem tem 3 conversas ou mais com FCR conhecido no período', rankItems(L.filter(fcrVal), c => c.agent, fcrPct, { fmt: v => Math.round(v) + '%', min: 3, short: true }), { fmt: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
@@ -895,7 +950,7 @@ const ini = n => String(n).trim().split(/\s+/).filter(Boolean).map(w => w[0]).sl
 async function loadNotes() {
   if (!me) return;
   try {
-    const pe = await supa.from('atendentes').select('id,nome,perfil,ativo,lider_direto_id,ve_tudo_anotacoes,foto_path');
+    const pe = await supa.from('atendentes').select('id,nome,perfil,ativo,lider_direto_id,ve_tudo_anotacoes,ver_todos,foto_path');
     if (pe.error) throw pe.error;
     NPEOPLE = new Map(pe.data.map(p => [p.id, p]));
     let all = [], from = 0;
@@ -908,7 +963,7 @@ async function loadNotes() {
     }
     NOTES = all;
   } catch (e) { $('nList').textContent = 'Não foi possível carregar as anotações: ' + (e.message || e); return; }
-  updateBell(); renderNotes(); if ($('drawer').classList.contains('open') && drawerId) renderDrawerNotes(true);
+  buildViewAs(); updateBell(); renderNotes(); if ($('drawer').classList.contains('open') && drawerId) renderDrawerNotes(true);
   loadAvatars();
   clearInterval(notesTimer); notesTimer = setInterval(() => { if (me) loadNotes(); }, 60000);
 }
@@ -1120,7 +1175,7 @@ addEventListener('resize', () => bellOpen(false));
 /* ---------- 9) FOTO DE PERFIL ---------- */
 let AVATAR = new Map(), avSig = '', avAt = 0;       // id da pessoa -> endereço temporário da foto
 const avatarHtml = (id, nome) => AVATAR.has(id) ? `<img src="${esc(AVATAR.get(id))}" alt="">` : esc(ini(nome));
-function paintAvatars() { if (!me) return; $('avImg').innerHTML = avatarHtml(me.id, me.nome); renderNotes(); renderBell(); renderDrawerNotes(); if (!$('avMenu').classList.contains('hidden')) avMenuRender(); }
+function paintAvatars() { if (!me) return; $('avImg').innerHTML = avatarHtml(me.id, me.nome); renderNotes(); renderBell(); renderDrawerNotes(); renderSemana(); if (!$('avMenu').classList.contains('hidden')) avMenuRender(); }
 async function loadAvatars() {
   if (!me) return;
   const ps = [...NPEOPLE.values()].filter(p => p.foto_path);
@@ -1194,6 +1249,185 @@ $('avMenu').addEventListener('click', e => {
 $('avFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) avUpload(f); };
 document.addEventListener('click', e => { if (!$('avMenu').classList.contains('hidden') && !e.target.closest('#avMenu')) avOpen(false); });
 addEventListener('resize', () => avOpen(false));
+
+/* ---------- 10) MINHA SEMANA: resumo semanal, com opção de ver por dia ---------- */
+const mondayOf = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const day0 = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const sameDay = (a, b) => +day0(a) === +day0(b);
+const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+let TEAMW = new Map(), sw = { mode: 'week', week: null, day: null }, swAllRev = false;
+
+async function loadTeamWeekly() {
+  const r = await supa.from('time_semanal').select('*');
+  if (!r.error) { TEAMW = new Map(r.data.map(x => [x.semana, x])); renderSemana(); }
+}
+/* "Ver como": liderança primeiro, depois atendentes */
+function buildViewAs() {
+  if (!me || me.perfil !== 'lider') return;
+  const at = new Set(DATA.map(c => c.agent)); NPEOPLE.forEach(p => { if (p.perfil !== 'lider' && p.ativo) at.add(p.nome); });
+  const lids = [...NPEOPLE.values()].filter(p => p.perfil === 'lider' && p.ativo && p.id !== me.id).map(p => p.nome).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const opt = n => `<option value="${esc(n)}">${esc(n)}</option>`;
+  const cur = viewAs || '';
+  $('viewAs').innerHTML = '<option value="">Ver como: eu mesmo</option>' + (lids.length ? `<optgroup label="Liderança">${lids.map(opt).join('')}</optgroup>` : '') +
+    `<optgroup label="Atendentes">${[...at].sort((a, b) => a.localeCompare(b, 'pt-BR')).map(opt).join('')}</optgroup>`;
+  $('viewAs').value = cur;
+}
+
+function swInit() {
+  sw = { mode: 'week', week: null, day: null }; swAllRev = false;
+  const all = scope(), hoje = day0(new Date());
+  if (!all.length) { sw.week = mondayOf(hoje); return; }
+  const mons = [...new Set(all.map(c => +mondayOf(c.date)))].sort((a, b) => a - b);
+  const fechadas = mons.filter(m => addDays(new Date(m), 7) <= hoje);
+  sw.week = new Date(fechadas.length ? fechadas[fechadas.length - 1] : mons[mons.length - 1]);
+}
+const inR = (L, a, b) => L.filter(c => c.date >= a && c.date < b);
+function swBase() { let L = scope(); if (seesAllNow() && $('swAgent').value) L = L.filter(c => c.agent === $('swAgent').value); return L; }
+function swStats(L) {
+  const k = L.filter(fcrVal);
+  return { n: L.length, csat: L.length ? avg(L.map(c => c.csat)) : null, fcr: k.length ? k.filter(c => fcrVal(c) === 'sim').length / k.length * 100 : null,
+    parcial: L.filter(c => c.fcr === 'em_apuracao' && c.fcrParcial).length, resp: median(L.filter(c => !c.longa).map(c => c.first)) };
+}
+function swTile(label, val, fmt, base, low, un, baseLabel, note) {
+  let d = '<div class="kd eq">sem base de comparação</div>';
+  if (val == null) d = '<div class="kd eq">sem conversas</div>';
+  else if (base != null) {
+    const x = val - base, abs = Math.abs(x), eq = abs < (un === '' ? 0.05 : 0.5), bom = low ? x < 0 : x > 0;
+    d = eq ? `<div class="kd eq">igual a ${baseLabel}</div>` : `<div class="kd ${bom ? 'good' : 'bad'}">${x > 0 ? '▲' : '▼'} ${un === '' ? abs.toFixed(1) : fmtN(abs) + ' ' + un} vs ${baseLabel}</div>`;
+  }
+  return `<div class="kpi"><div class="v">${val == null ? '—' : fmt(val)}</div><div class="l">${label}</div>${d}${note ? `<div class="kd eq">${note}</div>` : ''}</div>`;
+}
+const dlt = (v, b, low, un) => {
+  if (v == null || b == null) return '';
+  const x = v - b, eq = Math.abs(x) < (un === '' ? 0.05 : 0.5); if (eq) return '<span class="dl eq">=</span>';
+  return `<span class="dl ${(low ? x < 0 : x > 0) ? 'good' : 'bad'}">${x > 0 ? '▲' : '▼'}${un === '' ? Math.abs(x).toFixed(1) : fmtN(Math.abs(x))}</span>`;
+};
+const swDefaultDay = (L, mon) => {
+  let best = null;
+  for (let i = 0; i < 7; i++) { const d = addDays(mon, i), g = L.filter(c => sameDay(c.date, d)); if (g.length && (!best || avg(g.map(c => c.csat)) < best.v)) best = { d, v: avg(g.map(c => c.csat)) }; }
+  return best ? best.d : mon;
+};
+const avatarByName = nome => { const p = [...NPEOPLE.values()].find(x => x.nome.trim().toLowerCase() === String(nome).trim().toLowerCase()); return p ? avatarHtml(p.id, p.nome) : esc(ini(nome)); };
+
+function swReview(L) {
+  return L.map(c => {
+    const why = [];
+    if (c.csat <= 2) why.push('nota ' + c.csat);
+    if (fcrVal(c) === 'nao') why.push(c.fcr === 'nao' ? 'cliente voltou pelo mesmo motivo' : 'cliente já voltou (parcial)');
+    if (c.longa) why.push('espera longa pela 1ª resposta');
+    return { c, why };
+  }).filter(x => x.why.length).sort((a, b) => a.c.csat - b.c.csat || b.c.date - a.c.date);
+}
+function worstMotivo(L, min) {
+  const m = new Map(); L.forEach(c => { const k = c.motivo || 'sem classificação'; (m.get(k) || m.set(k, []).get(k)).push(c); });
+  const r = [...m.entries()].filter(([, g]) => g.length >= min).map(([k, g]) => ({ k, n: g.length, v: avg(g.map(c => c.csat)) })).sort((a, b) => a.v - b.v);
+  return r[0] || null;
+}
+
+function renderSemana() {
+  if (!me || !$('tab-sem') || !sw.week) return;
+  const lider = seesAllNow(), agente = lider ? $('swAgent').value : '';
+  $('swAgentWrap').classList.toggle('hidden', !lider);
+  const equipe = lider && !agente;                                  // liderança olhando o time todo
+  const base = swBase(), mon = sw.week, fim = addDays(mon, 7), hoje = day0(new Date()), fechada = fim <= hoje, modoDia = sw.mode === 'day';
+  const semL = inR(base, mon, fim);
+  if (modoDia && (!sw.day || sw.day < mon || sw.day >= fim)) sw.day = swDefaultDay(semL, mon);
+  const dia = modoDia ? sw.day : null, L = modoDia ? semL.filter(c => sameDay(c.date, dia)) : semL;
+  $('swModeW').classList.toggle('on', !modoDia); $('swModeD').classList.toggle('on', modoDia);
+  $('swCmpWrap').classList.toggle('hidden', modoDia || equipe);
+  const all = scope(), minD = all.length ? day0(new Date(Math.min(...all.map(c => +c.date)))) : mon;
+  $('swPrev').disabled = modoDia ? dia <= minD : addDays(mon, 7) <= minD;
+  $('swNext').disabled = modoDia ? dia >= hoje : mon >= mondayOf(hoje);
+
+  /* título */
+  $('swTitle').textContent = modoDia ? `${cap(DIAS[dia.getDay()])}, ${ddmm(dia)}` : `${ddmm(mon)} a ${ddmm(addDays(mon, 6))}`;
+  $('swSub').textContent = (equipe ? 'Time todo · ' : agente ? agente + ' · ' : '') + (modoDia ? `dia da semana de ${ddmm(mon)} a ${ddmm(addDays(mon, 6))}` : fechada ? 'semana fechada' : 'semana em andamento');
+
+  /* comparação */
+  const cmp = equipe ? 'prev' : $('swCmp').value;
+  let ref = null, refLabel = '';
+  if (modoDia) { ref = semL.length ? swStats(semL) : null; refLabel = 'a média da semana'; }
+  else if (cmp === 'team') {
+    const t = TEAMW.get(isoDay(mon)); refLabel = 'o time';
+    ref = t ? { csat: t.csat_medio == null ? null : +t.csat_medio, fcr: t.fcr_pct == null ? null : +t.fcr_pct, resp: t.primeira_mediana_s == null ? null : +t.primeira_mediana_s } : null;
+  } else { const pl = inR(base, addDays(mon, -7), mon); ref = pl.length ? swStats(pl) : null; refLabel = 'a semana anterior'; }
+  const cur = swStats(L);
+  $('swTiles').innerHTML = [
+    swTile('CSAT médio', cur.csat, v => v.toFixed(2), ref ? ref.csat : null, false, '', refLabel),
+    swTile('FCR (inclui parciais)', cur.fcr, v => Math.round(v) + '%', ref ? ref.fcr : null, false, 'pts', refLabel, cur.parcial ? `${cur.parcial} parcial(is)` : ''),
+    swTile('1ª resposta (mediana)', cur.resp == null ? null : cur.resp / 60, fmtMin, ref && ref.resp != null ? ref.resp / 60 : null, true, 'min', refLabel),
+    `<div class="kpi"><div class="v">${cur.n}</div><div class="l">Conversas avaliadas</div><div class="kd eq">${modoDia ? 'no dia' : fechada ? 'na semana' : 'até hoje'}</div></div>`
+  ].join('');
+
+  /* faixa dos dias */
+  const dias = [...Array(7).keys()].map(i => { const d = addDays(mon, i), g = semL.filter(c => sameDay(c.date, d)); return { d, n: g.length, v: g.length ? avg(g.map(c => c.csat)) : null }; });
+  $('swDays').innerHTML = `<h3>Como foi cada dia</h3><div class="sub">${modoDia ? 'Clique em outro dia para trocar, ou em "Semana" para ver tudo junto' : 'Clique em um dia para ver só ele'}</div><div class="dstrip">` +
+    dias.map(x => `<button type="button" class="dbtn${modoDia && sameDay(x.d, dia) ? ' on' : ''}" data-day="${isoDay(x.d)}"><div class="dn">${DIAS[x.d.getDay()].slice(0, 3)}</div><div class="dd">${x.d.getDate()}</div><div class="dbar">${x.v == null ? '' : `<i style="height:${Math.max(4, x.v / 5 * 44)}px"></i>`}</div><div class="dc">${x.v == null ? '—' : x.v.toFixed(1)}</div><div class="dq">${x.n} conv.</div></button>`).join('') + '</div>';
+
+  /* o que mais importa */
+  const I = [], quem = equipe ? 'O CSAT do time' : agente ? `O CSAT de ${agente}` : 'Seu CSAT';
+  if (!L.length) I.push(['info', `Sem conversas avaliadas ${modoDia ? 'neste dia' : 'nesta semana'}.`]);
+  else {
+    if (ref && ref.csat != null && cur.csat != null) {
+      const x = Math.round((cur.csat - ref.csat) * 10) / 10, a = Math.abs(x).toFixed(1);
+      if (modoDia) {
+        I.push([x >= 0 ? 'good' : 'bad', x === 0 ? `${quem} neste dia ficou igual à média da semana.` : `${quem} neste dia ficou ${a} ${x > 0 ? 'acima' : 'abaixo'} da média da semana (${ref.csat.toFixed(1)} → ${cur.csat.toFixed(1)}).`]);
+        const outros = dias.filter(z => z.v != null);
+        if (outros.length > 1) { const mn = Math.min(...outros.map(z => z.v)), mx = Math.max(...outros.map(z => z.v)); if (cur.csat === mn) I.push(['bad', 'Foi o pior dia da semana. Vale ver o que aconteceu.']); else if (cur.csat === mx) I.push(['good', 'Foi o melhor dia da semana.']); }
+      } else if (cmp === 'team' && !equipe) I.push([x >= 0 ? 'good' : 'bad', x === 0 ? `${quem} está igual à média do time.` : `${quem} está ${a} ${x > 0 ? 'acima' : 'abaixo'} da média do time (${ref.csat.toFixed(1)} → ${cur.csat.toFixed(1)}).`]);
+      else I.push([x >= 0 ? 'good' : 'bad', x === 0 ? `${quem} ficou igual ao da semana anterior.` : `${quem} ${x > 0 ? 'subiu' : 'caiu'} ${a} em relação à semana anterior (${ref.csat.toFixed(1)} → ${cur.csat.toFixed(1)}).`]);
+    } else I.push(['info', `${quem} foi ${cur.csat.toFixed(1)}. Não há ${modoDia ? 'outros dias' : 'semana anterior'} para comparar.`]);
+    if (!modoDia && ref && ref.fcr != null && cur.fcr != null && Math.abs(cur.fcr - ref.fcr) >= 5) I.push([cur.fcr > ref.fcr ? 'good' : 'bad', `O FCR ${cur.fcr > ref.fcr ? 'subiu' : 'caiu'} ${fmtN(Math.abs(cur.fcr - ref.fcr))} pontos (${Math.round(ref.fcr)}% → ${Math.round(cur.fcr)}%) em relação ${cmp === 'team' && !equipe ? 'ao time' : 'à semana anterior'}.`]);
+    const wm = worstMotivo(L, modoDia ? 2 : 3);
+    I.push(wm ? ['warn', `O motivo com a pior nota foi <b>${esc(wm.k)}</b>: média ${wm.v.toFixed(1)} em ${wm.n} conversas. É por onde vale começar.`] : ['info', 'Poucas conversas por motivo para comparar.']);
+    const rv = swReview(L), volt = rv.filter(x => fcrVal(x.c) === 'nao').length;
+    I.push(['info', rv.length ? `<b>${rv.length}</b> conversa${rv.length > 1 ? 's merecem' : ' merece'} revisão${volt ? `, ${volt} com cliente que voltou pelo mesmo motivo` : ''}. Abra, veja o que aprendeu e anote.` : 'Nenhuma conversa com nota baixa ou cliente que voltou. Bom sinal.']);
+  }
+  /* liderança olhando o time: quem mais subiu e quem mais caiu */
+  let tabelaTime = '';
+  if (equipe) {
+    const prevL = modoDia ? [] : inR(base, addDays(mon, -7), mon);
+    const rows = [...new Set(L.map(c => c.agent))].map(n => { const a = L.filter(c => c.agent === n), p = prevL.filter(c => c.agent === n); return { n, s: swStats(a), ps: p.length ? swStats(p) : null }; }).sort((x, y) => (x.s.csat ?? 9) - (y.s.csat ?? 9));
+    if (!modoDia) {
+      const mv = rows.filter(r => r.s.n >= 3 && r.ps && r.ps.n >= 3).map(r => ({ n: r.n, d: r.s.csat - r.ps.csat })).sort((a, b) => b.d - a.d);
+      if (mv.length >= 2) I.splice(1, 0, ['info', `Quem mais subiu: <b>${esc(mv[0].n)}</b> (${mv[0].d >= 0 ? '+' : ''}${mv[0].d.toFixed(1)}). Quem mais caiu: <b>${esc(mv[mv.length - 1].n)}</b> (${mv[mv.length - 1].d >= 0 ? '+' : ''}${mv[mv.length - 1].d.toFixed(1)}).`]);
+    }
+    tabelaTime = `<section class="vcard"><h3>Time por atendente</h3><div class="sub">Do menor para o maior CSAT, para ver quem precisa de atenção. Clique numa linha para abrir só essa pessoa</div><div class="tablewrap" style="border:0"><table style="min-width:520px"><thead><tr><th>Atendente</th><th>Conversas</th><th>CSAT</th><th>FCR</th><th>1ª resposta</th></tr></thead><tbody>` +
+      rows.map(r => `<tr data-ag="${esc(r.n)}"><td><div class="tnome"><div class="nav">${avatarByName(r.n)}</div>${esc(r.n)}</div></td><td>${r.s.n}</td><td>${r.s.csat == null ? '—' : r.s.csat.toFixed(1)}${r.ps ? dlt(r.s.csat, r.ps.csat, false, '') : ''}</td><td>${r.s.fcr == null ? '—' : Math.round(r.s.fcr) + '%'}${r.ps ? dlt(r.s.fcr, r.ps.fcr, false, 'pts') : ''}</td><td>${r.s.resp == null ? '—' : fmtMin(r.s.resp / 60)}${r.ps ? dlt(r.s.resp == null ? null : r.s.resp / 60, r.ps.resp == null ? null : r.ps.resp / 60, true, 'min') : ''}</td></tr>`).join('') + '</tbody></table></div></section>';
+  }
+  const COR = { good: 'var(--good)', bad: 'var(--bad)', warn: 'var(--warn)', info: 'var(--dark)' };
+  $('swIns').innerHTML = '<h3>O que mais importa</h3>' + I.slice(0, 4).map(([t, h]) => `<div class="insr"><span class="dot" style="background:${COR[t]}"></span><div>${h}</div></div>`).join('');
+  $('swTeam').innerHTML = tabelaTime;
+
+  /* conversas para revisar */
+  const rv = swReview(L), mostra = swAllRev ? rv : rv.slice(0, 6);
+  $('swRev').innerHTML = `<h3>Conversas para revisar</h3><div class="sub">Nota 1 e 2 primeiro. Entram também clientes que voltaram pelo mesmo motivo e esperas longas</div>` +
+    (rv.length ? mostra.map(({ c, why }) => `<div class="revrow"><div>${sc(c.csat)} <b style="font-weight:600;margin-left:6px">${esc(c.motivo || 'sem classificação')}</b>${equipe ? ` <span style="color:var(--muted)">· ${esc(shortName(c.agent))}</span>` : ''} <span style="color:var(--muted)">· ${esc(why.join(', '))} · ${ddmm(c.date)}</span></div><button class="btn ghost" type="button" data-open="${esc(c.id)}" style="padding:6px 14px">Abrir e anotar</button></div>`).join('') +
+      (rv.length > 6 ? `<div style="padding-top:10px"><button class="lnk" type="button" data-allrev="1" style="background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0;font-size:12px">${swAllRev ? 'Ver só as 6 primeiras' : `Ver todas (${rv.length})`}</button></div>` : '')
+      : '<div class="vempty">Nada para revisar neste período.</div>');
+
+  /* evolução das últimas 6 semanas */
+  const itens = [];
+  for (let k = 5; k >= 0; k--) { const m = addDays(mon, -7 * k), g = inR(base, m, addDays(m, 7)), v = g.length ? avg(g.map(c => c.csat)) : null; itens.push({ label: ddmm(m), value: v, n: g.length, hi: k === 0, tip: `Semana de ${ddmm(m)}: ${v == null ? 'sem dados' : v.toFixed(2)} · ${g.length} conversa(s)` }); }
+  $('swHist').innerHTML = vcard('Como o CSAT evoluiu', 'As últimas 6 semanas, nota de 0 a 5 (a semana escolhida está em destaque)', colChart(itens, { fmt: v => v.toFixed(2), fmtTick: v => fmtN(v), max: 5 }), ['Semana de', 'CSAT', 'Conversas'], itens.map(i => [i.label, i.value == null ? '—' : i.value.toFixed(2), i.n]));
+}
+$('swPrev').onclick = () => swMove(-1);
+$('swNext').onclick = () => swMove(1);
+function swMove(dir) {
+  if (sw.mode === 'day') { sw.day = addDays(sw.day || sw.week, dir); sw.week = mondayOf(sw.day); } else sw.week = addDays(sw.week, 7 * dir);
+  renderSemana();
+}
+$('swModeW').onclick = () => { sw.mode = 'week'; renderSemana(); };
+$('swModeD').onclick = () => { sw.mode = 'day'; renderSemana(); };
+$('swAgent').onchange = $('swCmp').onchange = () => { swAllRev = false; renderSemana(); };
+$('tab-sem').addEventListener('click', e => {
+  const d = e.target.closest('[data-day]'); if (d) { sw.mode = 'day'; sw.day = parseDay(d.dataset.day); renderSemana(); return; }
+  const o = e.target.closest('[data-open]'); if (o) { const c = DATA.find(x => x.id === o.dataset.open); if (c) openDrawer(c); return; }
+  if (e.target.closest('[data-allrev]')) { swAllRev = !swAllRev; renderSemana(); return; }
+  const r = e.target.closest('tr[data-ag]'); if (r) { $('swAgent').value = r.dataset.ag; swAllRev = false; renderSemana(); }
+});
 
 /* sessão já existente (recarregar a página) */
 supa.auth.getSession().then(({ data }) => { if (!data.session) showLogin(); });
