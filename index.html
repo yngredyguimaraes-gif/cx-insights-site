@@ -776,6 +776,14 @@ async function loadMessages(c) {
 }
 const closeDrawer = () => $('drawer').classList.remove('open');
 $('dClose').onclick = closeDrawer;
+/* clicar fora do painel fecha a conversa (se houver texto não enviado, pergunta antes) */
+document.addEventListener('pointerdown', e => {
+  if (!$('drawer').classList.contains('open')) return;
+  if (e.target.closest('#drawer') || !document.contains(e.target)) return;
+  const pendente = [...$('drawer').querySelectorAll('textarea')].some(t => t.value.trim());
+  if (pendente && !confirm('Você tem um texto não enviado nesta conversa. Fechar mesmo assim? O texto será perdido.')) return;
+  closeDrawer();
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); const bp = $('bellPanel'); if (bp) bp.classList.add('hidden'); const am = $('avMenu'); if (am) am.classList.add('hidden'); } });
 
 /* ---------- 5) ACESSOS (liderança) ---------- */
