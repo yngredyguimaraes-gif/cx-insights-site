@@ -750,7 +750,7 @@ function openDrawer(c, fila) {
   $('drawer').classList.add('open');
   drawerQuote = '';
   loadMessages(c);
-  drawerId = c.id; renderDrawerNotes(); renderDrawerMarks(c);
+  drawerId = c.id; renderDrawerNotes(); dmOpen = false; renderDrawerMarks(c);
   renderDrawerNav(c); $('dBody').scrollTop = 0;
 }
 let drawerId = null;
@@ -1739,7 +1739,7 @@ async function loadMarks() {
   if (g) { GTAGS = new Map(); g.forEach(x => (GTAGS.get(x.conversation_id) || GTAGS.set(x.conversation_id, []).get(x.conversation_id)).push(x)); }
   refreshMarks();
 }
-/* filtro por tags: lista de tags clicáveis (várias ao mesmo tempo); × apaga a tag para quem a criou */
+/* filtro por tags: lista suspensa com seleção múltipla (só filtra; não apaga nada) */
 function tagInfo(t) {
   let pessoal = 0, minhasGlobais = 0, global = false, n = 0;
   DATA.forEach(c => { if (tagsOf(c.id).includes(t)) n++; });
@@ -1756,7 +1756,7 @@ function fillTagFilter() {
   $('tfBtn').textContent = !selTags.size ? 'Todas' : selTags.size === 1 ? [...selTags][0] : `${selTags.size} tags selecionadas`;
   box.innerHTML = all.map((t, k) => {
     const i = tagInfo(t);
-    return `<div class="msrow"><label><input type="checkbox" data-tf="${esc(t)}" ${selTags.has(t) ? 'checked' : ''}><span>${esc(t)}</span>${i.global ? '<span class="msg-pill" title="Tag global: todos que veem a conversa enxergam">global</span>' : ''}<span class="tfn" title="Conversas com esta tag">${i.n}</span></label>${i.apagavel ? `<button type="button" class="tfx" data-tfdel="${esc(t)}" aria-label="Apagar a tag ${esc(t)}" title="Apagar esta tag (só das conversas em que você a colocou)">×</button>` : ''}</div>`;
+    return `<div class="msrow"><label><input type="checkbox" data-tf="${esc(t)}" ${selTags.has(t) ? 'checked' : ''}><span>${esc(t)}</span>${i.global ? '<span class="msg-pill" title="Tag global: todos que veem a conversa enxergam">global</span>' : ''}<span class="tfn" title="Conversas com esta tag">${i.n}</span></label></div>`;
   }).join('') + `<div class="msfoot"><button type="button" data-tfclear="1" ${selTags.size ? '' : 'disabled style="opacity:.5;cursor:default"'}>Limpar seleção</button></div>`;
   if (keep) { const el = [...box.querySelectorAll('[data-tf]')].find(x => x.dataset.tf === keep); if (el) el.focus(); }
 }
@@ -1764,29 +1764,8 @@ const tfOpen = on => { $('fTagBox').classList.toggle('hidden', !on); $('tfBtn').
 $('tfBtn').onclick = e => { e.stopPropagation(); tfOpen($('fTagBox').classList.contains('hidden')); };
 document.addEventListener('click', e => { if (!e.target.closest('#tfWrap')) tfOpen(false); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('fTagBox').classList.contains('hidden')) { tfOpen(false); $('tfBtn').focus(); } });
-async function apagarTagTudo(t) {
-  const i = tagInfo(t), partes = [];
-  if (i.pessoal) partes.push(`${i.pessoal} conversa(s) com a tag pessoal`);
-  if (i.minhasGlobais) partes.push(`${i.minhasGlobais} conversa(s) com a tag global que você criou`);
-  if (!confirm(`Apagar a tag "${t}"? Ela será removida de: ${partes.join(' e ')}. Isso não pode ser desfeito.`)) return;
-  let falhou = false;
-  if (i.pessoal) {
-    const rows = [...MYMARK.entries()].filter(([, m]) => m.tags.includes(t));
-    const manter = rows.filter(([, m]) => m.favorito || m.tags.length > 1), apagar = rows.filter(([, m]) => !m.favorito && m.tags.length <= 1);
-    if (manter.length) { const { error } = await supa.from('marcacoes_conversa').upsert(manter.map(([id, m]) => ({ pessoa_id: me.id, conversation_id: id, favorito: m.favorito, tags: m.tags.filter(x => x !== t) })), { onConflict: 'pessoa_id,conversation_id' }); if (error) falhou = true; else manter.forEach(([id, m]) => MYMARK.set(id, { favorito: m.favorito, tags: m.tags.filter(x => x !== t) })); }
-    if (apagar.length) { const { error } = await supa.from('marcacoes_conversa').delete().eq('pessoa_id', me.id).in('conversation_id', apagar.map(([id]) => id)); if (error) falhou = true; else apagar.forEach(([id]) => MYMARK.delete(id)); }
-  }
-  if (i.minhasGlobais) {
-    const { error } = await supa.from('tags_conversa_globais').delete().eq('tag', t).eq('criado_por', me.id);
-    if (error) falhou = true; else GTAGS.forEach((l, id) => GTAGS.set(id, l.filter(g => !(g.tag === t && g.criado_por === me.id))));
-  }
-  if (falhou) alert('Não foi possível apagar a tag em todas as conversas. Tente de novo.');
-  selTags.delete(t); refreshMarks();
-}
 $('fTagBox').addEventListener('click', e => {
-  const x = e.target.closest('[data-tfdel]');
-  if (e.target.closest('[data-tfclear]')) { selTags.clear(); shown = PAGE; fillTagFilter(); render(); return; }
-  if (x) apagarTagTudo(x.dataset.tfdel);
+  if (e.target.closest('[data-tfclear]')) { selTags.clear(); shown = PAGE; fillTagFilter(); render(); }
 });
 $('fTagBox').addEventListener('change', e => {
   const b = e.target.closest('[data-tf]'); if (!b) return;
@@ -1814,23 +1793,26 @@ function renderDrawerMarks(c) {
   const box = $('dMarks'); if (!box) return;
   if (!me || simulando()) { box.classList.add('hidden'); box.innerHTML = ''; return; }
   box.classList.remove('hidden');
-  const id = c.id, fav = isFav(id), tem = tagsOf(id).length, sug = sugestoes(id);
+  const id = c.id, fav = isFav(id), tem = tagsOf(id).length, cat = catalogo(id);
+  const af = document.activeElement, keepF = af && af.dataset && af.dataset.dm !== undefined && box.contains(af) ? [af.dataset.dm, af.dataset.g] : null;
   box.innerHTML = `<div class="dmrow"><button type="button" class="btn ghost sm" data-mk="fav" aria-pressed="${fav}">${fav ? '★ Favorita' : '☆ Favoritar'}</button>${tagChips(id, true)}${tem ? '' : '<span class="note" style="margin:0">Sem tags ainda.</span>'}</div>
-    <form class="dmadd" id="dmForm"><input type="text" id="dmTag" maxlength="30" autocomplete="off" placeholder="Escreva uma tag nova, por exemplo: boa prática" aria-label="Nome da tag">
-      <label class="dmg"><input type="checkbox" id="dmGlobal" ${lastGlobal ? 'checked' : ''}> Tag global <span class="note" style="margin:0">(todos que veem a conversa enxergam)</span></label><button class="btn sm" type="submit">Adicionar tag</button></form>
+    <div class="msel" id="dmSel"><label for="dmBtn">Tags desta conversa</label><button type="button" id="dmBtn" class="msbtn" aria-haspopup="true" aria-expanded="${dmOpen}">${tem ? `${tem} tag${tem > 1 ? 's' : ''} nesta conversa` : 'Selecionar tags'}</button>
+      <div class="mspanel${dmOpen ? '' : ' hidden'}" id="dmPanel" role="group" aria-label="Tags">${cat.length ? cat.map(x => `<div class="msrow"><label><input type="checkbox" data-dm="${esc(x.t)}" data-g="${x.g ? 1 : 0}" ${x.aqui ? 'checked' : ''}><span>${esc(x.t)}</span>${x.g ? '<span class="msg-pill" title="Tag global: todos que veem a conversa enxergam">global</span>' : ''}<span class="tfn">${x.outras ? `em ${x.outras} outra${x.outras > 1 ? 's' : ''}` : 'só aqui'}</span></label>${x.aqui && !x.outras && x.meu ? `<button type="button" class="tfx" data-mk="del" data-tag="${esc(x.t)}" data-g="${x.g ? 1 : 0}" aria-label="Excluir a tag ${esc(x.t)}" title="Excluir: esta tag não é usada em nenhuma outra conversa">×</button>` : ''}</div>`).join('') : '<div class="note" style="padding:8px">Ainda não há tags. Crie a primeira abaixo.</div>'}
+        <div class="msfoot">Só dá para excluir (×) uma tag que não está em nenhuma outra conversa.</div></div></div>
+    <form class="dmadd" id="dmForm"><input type="text" id="dmTag" maxlength="30" autocomplete="off" placeholder="Ou crie uma tag nova, por exemplo: boa prática" aria-label="Nome da nova tag">
+      <label class="dmg"><input type="checkbox" id="dmGlobal" ${lastGlobal ? 'checked' : ''}> Tag global <span class="note" style="margin:0">(todos que veem a conversa enxergam)</span></label><button class="btn sm" type="submit">Criar e adicionar</button></form>
     <div class="alert" id="dmMsg" role="status"></div>
-    ${sug.length ? `<div class="dmsug"><span class="note" style="margin:0">Ou use uma tag que já existe:</span><div class="dmsl">${sug.map(([t, g]) => `<button type="button" class="ctag${g ? ' g' : ''}" data-mk="use" data-tag="${esc(t)}" data-g="${g ? 1 : 0}" title="${g ? 'Tag global' : 'Tag pessoal'}: clique para adicionar a esta conversa">+ ${esc(t)}</button>`).join('')}</div></div>` : ''}
     <p class="note" style="margin:8px 0 0">Verde = tag global. Sem cor = tag pessoal, só você vê. Até 10 tags de cada tipo por conversa.</p>`;
+  if (keepF) { const el = [...box.querySelectorAll('[data-dm]')].find(x => x.dataset.dm === keepF[0] && x.dataset.g === keepF[1]); if (el) el.focus(); }
 }
-/* tags já existentes que ainda não estão nesta conversa (pares tag + tipo) */
-function sugestoes(id) {
-  const tem = new Set([...myTags(id).map(t => 'p' + t), ...gTags(id).map(g => 'g' + g.tag)]), out = new Map();
-  if (!simulando()) {
-    GTAGS.forEach(l => l.forEach(g => { if (!tem.has('g' + g.tag)) out.set('g' + g.tag, [g.tag, true]); }));
-    MYMARK.forEach(m => m.tags.forEach(t => { if (!tem.has('p' + t)) out.set('p' + t, [t, false]); }));
-  }
-  return [...out.values()].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'));
+/* catálogo para o menu da conversa: cada tag (e seu tipo), se está aqui e em quantas OUTRAS conversas é usada */
+function catalogo(id) {
+  const m = new Map(), get = (t, g) => { const k = (g ? 'g' : 'p') + t; if (!m.has(k)) m.set(k, { t, g, aqui: false, outras: 0, meu: false }); return m.get(k); };
+  GTAGS.forEach((l, cid) => l.forEach(x => { const e = get(x.tag, true); if (cid === id) { e.aqui = true; e.meu = !!me && (x.criado_por === me.id || me.perfil === 'lider'); } else e.outras++; }));
+  MYMARK.forEach((mk, cid) => mk.tags.forEach(t => { const e = get(t, false); if (cid === id) { e.aqui = true; e.meu = true; } else e.outras++; }));
+  return [...m.values()].sort((a, b) => a.t.localeCompare(b.t, 'pt-BR') || (b.g - a.g));
 }
+let dmOpen = false;
 async function addTag(id, texto, global) {
   const t = normTag(texto !== undefined ? texto : $('dmTag').value), g = global !== undefined ? global : $('dmGlobal').checked, say = (k, x) => msg($('dmMsg'), k, x);
   if (texto === undefined) lastGlobal = g;
@@ -1848,7 +1830,7 @@ async function addTag(id, texto, global) {
     if (cur.length >= 10) return say('err', 'Já são 10 tags pessoais nesta conversa.');
     if (!await saveMine(id, isFav(id), [...cur, t])) return say('err', 'Não foi possível adicionar a tag.');
   }
-  refreshMarks(); const n = $('dmTag'); if (n) n.focus();
+  refreshMarks(); if (texto === undefined) { const n = $('dmTag'); if (n) n.focus(); }
 }
 async function removeTag(id, t, g) {
   if (g) {
@@ -1861,17 +1843,22 @@ async function removeTag(id, t, g) {
 }
 $('dBody').addEventListener('submit', e => { if (e.target.closest('#dMarks')) { e.preventDefault(); addTag(drawerId); } });
 $('dBody').addEventListener('click', e => {
+  if (e.target.closest('#dmBtn')) { dmOpen = !dmOpen; $('dmPanel').classList.toggle('hidden', !dmOpen); $('dmBtn').setAttribute('aria-expanded', dmOpen); return; }
   const b = e.target.closest('#dMarks [data-mk]'); if (!b) return;
   if (b.dataset.mk === 'fav') toggleFav(drawerId);
   else if (b.dataset.mk === 'rm') removeTag(drawerId, b.dataset.tag, b.dataset.g === '1');
-  else if (b.dataset.mk === 'use') addTag(drawerId, b.dataset.tag, b.dataset.g === '1');
+  else if (b.dataset.mk === 'del') {
+    const g = b.dataset.g === '1', t = b.dataset.tag;
+    if (!g && !confirm(`Excluir a tag "${t}"? Ela não é usada em nenhuma outra conversa.`)) return;
+    removeTag(drawerId, t, g);
+  }
 });
-/* ao digitar, as tags existentes são filtradas */
-$('dBody').addEventListener('input', e => {
-  if (e.target.id !== 'dmTag') return;
-  const q = normTag(e.target.value);
-  document.querySelectorAll('#dMarks [data-mk=use]').forEach(b => { b.classList.toggle('hidden', !!q && !b.dataset.tag.includes(q)); });
+/* marcar ou desmarcar uma tag no menu: só mexe nesta conversa */
+$('dBody').addEventListener('change', e => {
+  const c = e.target.closest('#dMarks [data-dm]'); if (!c) return;
+  if (c.checked) addTag(drawerId, c.dataset.dm, c.dataset.g === '1'); else removeTag(drawerId, c.dataset.dm, c.dataset.g === '1');
 });
+document.addEventListener('click', e => { if (dmOpen && !e.target.closest('#dmSel')) { dmOpen = false; const p = $('dmPanel'); if (p) p.classList.add('hidden'); const bt = $('dmBtn'); if (bt) bt.setAttribute('aria-expanded', 'false'); } });
 
 /* sessão já existente (recarregar a página) */
 supa.auth.getSession().then(({ data }) => { if (!data.session) showLogin(); });
