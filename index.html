@@ -185,6 +185,7 @@
         </table>
         <div class="empty hidden" id="empty">Nenhuma conversa com esses filtros.</div>
       </div>
+      <div style="text-align:center;margin-top:12px"><button class="btn ghost hidden" id="more" type="button"></button></div>
       <p class="note" style="margin-top:12px">Tempos são estimativas: pausas de 12h ou mais (adiamento ou noite) são descontadas. Conversas com menos de 7 dias aparecem como "Em apuração" no FCR.</p>
     </div>
 
@@ -382,12 +383,14 @@ function filtered() {
   });
 }
 let sort = { key: 'date', dir: -1 };
+const PAGE = 100;
+let shown = PAGE;
 const FCR_ORDER = { sim: 3, nao: 2, em_apuracao: 1, sem_classificacao: 0 };
 const SORT = { id: c => c.id, date: c => +c.date, agent: c => c.agent, csat: c => c.csat, fcr: c => FCR_ORDER[c.fcr], dur: c => c.dur, gap: c => c.gap, first: c => c.first };
 document.querySelector('thead').addEventListener('click', e => {
   const th = e.target.closest('th.sortable'); if (!th) return;
   sort = { key: th.dataset.key, dir: sort.key === th.dataset.key ? -sort.dir : 1 };
-  render();
+  shown = PAGE; render();
 });
 
 const fmtSec = s => s == null ? '—' : s >= 3600 ? `${Math.floor(s / 3600)}h ${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}min` : s >= 60 ? `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s` : `${Math.round(s)}s`;
@@ -417,17 +420,21 @@ function render() {
     ['1ª resposta (média, sem esperas longas)', fmtSec(mFirst)],
     ['Conversas', list.length]
   ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
-  $('count').textContent = `${list.length} conversa(s) encontrada(s)`;
+  $('count').textContent = `${list.length} conversa(s) encontrada(s)` + (list.length > shown ? ` · mostrando ${shown}` : '');
   $('empty').classList.toggle('hidden', list.length > 0);
-  $('rows').innerHTML = list.slice(0, 300).map(c => `<tr data-id="${esc(c.id)}">
+  $('rows').innerHTML = list.slice(0, shown).map(c => `<tr data-id="${esc(c.id)}">
     <td><strong>${esc(c.id)}</strong><div style="color:var(--muted);font-size:12px">${esc(c.motivo || 'sem classificação')}</div></td>
     <td>${fmtD(c.date)}</td><td>${esc(c.agent)}</td><td>${sc(c.csat)}</td><td>${fcrTag(c.fcr)}</td>
     <td>${fmtSec(c.dur)}${c.pausas ? ` <span class="tag" title="${c.pausas} pausa(s) de 12h ou mais descontada(s)">adiada</span>` : ''}</td>
     <td>${fmtSec(c.gap)}</td><td>${fmtSec(c.first)}${c.longa ? ' <span class="tag" title="Espera longa: tempo real, fora da média">espera longa</span>' : ''}</td></tr>`).join('');
+  const resta = list.length - shown;
+  $('more').classList.toggle('hidden', resta <= 0);
+  $('more').textContent = `Mostrar mais ${Math.min(PAGE, Math.max(resta, 0))} (restam ${Math.max(resta, 0)})`;
   renderAnalysis();
 }
-FILTERS.forEach(id => $(id).addEventListener('change', render));
-$('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); render(); };
+$('more').onclick = () => { shown += PAGE; render(); };
+FILTERS.forEach(id => $(id).addEventListener('change', () => { shown = PAGE; render(); }));
+$('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); shown = PAGE; render(); };
 
 /* ---------- 4) CONVERSA + CSAT ---------- */
 $('rows').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) openDrawer(DATA.find(c => c.id === tr.dataset.id)); });
