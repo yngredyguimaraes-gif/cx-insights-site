@@ -118,6 +118,41 @@
   details.tv table{min-width:0;margin-top:8px;font-size:12px}
   details.tv th,details.tv td{padding:5px 8px;white-space:normal}
   #tip{position:fixed;z-index:30;pointer-events:none;background:var(--dark);color:#fff;font-size:12px;line-height:1.4;padding:7px 10px;border-radius:8px;max-width:260px;display:none;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+  /* desenvolvimento: anotações */
+  textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font:inherit;color:inherit;resize:vertical}
+  textarea:focus{outline:2px solid var(--brand);outline-offset:0}
+  .nbar{display:flex;gap:6px;flex-wrap:wrap}
+  .nb{padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13px}
+  .nb.on{background:var(--dark);color:#fff;border-color:var(--dark);font-weight:600}
+  .ncards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0 0}
+  .ncard{text-align:left;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;cursor:pointer;color:inherit}
+  .ncard.on{border:2px solid var(--dark);padding:9px 11px}
+  .ncard .v{font-size:24px;font-weight:800;margin-top:6px}
+  .tp{display:inline-block;font-size:12px;padding:2px 10px;border-radius:999px;font-weight:600}
+  .tp.melhoria{background:rgba(217,154,0,.15);color:#7a5600}
+  .tp.analise{background:rgba(46,47,57,.09);color:#2e2f39}
+  .tp.elogio{background:rgba(39,174,96,.14);color:#17683a}
+  .tp.duvida{background:rgba(120,80,190,.13);color:#5a3a99}
+  .nit{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line);cursor:default}
+  .nit.novo{background:linear-gradient(90deg,rgba(75,209,132,.12),transparent)}
+  .nav{width:30px;height:30px;border-radius:50%;background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none}
+  .nmeta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+  .nmeta .when{color:var(--muted);font-size:12px}
+  .ntxt{margin:4px 0;font-size:14px;white-space:pre-wrap;word-break:break-word}
+  .nquote{border-left:2px solid var(--line);padding:2px 10px;margin:6px 0;font-size:12px;color:var(--muted);white-space:pre-wrap}
+  .nact{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .nact a{color:var(--good);cursor:pointer;text-decoration:underline}
+  .nact select{width:auto;padding:3px 8px;font-size:12px;border-radius:8px}
+  .nact .lnk{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0;font-size:12px}
+  .ngroup{margin-top:14px}
+  .comp{border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px;background:var(--bg)}
+  .cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:8px}
+  .qchip{display:inline-block;max-width:100%;font-size:12px;padding:4px 10px;border-radius:10px;background:var(--card);border:1px solid var(--line);color:var(--muted);margin:4px 0}
+  .qchip a{margin-left:8px;color:var(--ink);cursor:pointer;text-decoration:underline}
+  .qbtn{display:block;background:none;border:0;padding:4px 0 0;font-size:11px;text-decoration:underline;cursor:pointer;color:inherit;opacity:.7}
+  .bellbtn{position:relative;width:auto;padding:7px 12px;margin:0}
+  .bn{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px}
+  .dnotes{margin-top:18px}
   /* drawer */
   #drawer{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;z-index:10}
   #drawer.open{transform:none}
@@ -192,6 +227,7 @@
     <span class="pill" id="roleTag"></span>
     <select id="viewAs" class="viewas hidden" aria-label="Ver como" title="Ver como outra pessoa"></select>
     <span class="spacer"></span>
+    <button class="btn ghost bellbtn" id="bell" type="button" aria-label="Notificações"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span id="bellN" class="bn hidden"></span></button>
     <span id="userName"></span>
     <button class="btn ghost" id="logout">Sair</button>
   </header>
@@ -199,6 +235,7 @@
     <div class="tabs">
       <button class="tab on" data-tab="conv">Conversas e CSAT</button>
       <button class="tab" data-tab="ana">Dados</button>
+      <button class="tab" id="tabDev" data-tab="dev">Desenvolvimento</button>
       <button class="tab hidden" id="tabAcc" data-tab="acc">Acessos</button>
     </div>
 
@@ -272,6 +309,24 @@
         <p class="note" style="margin:10px 0 0">Escolha a métrica e o agrupamento para ver o gráfico. Ele usa o período e o atendente escolhidos acima.</p>
       </div>
       <div class="vgrid" id="dBuilder" style="margin-top:12px"></div>
+    </div>
+
+    <!-- aba desenvolvimento -->
+    <div id="tab-dev" class="hidden">
+      <div class="filters">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="nbar" id="nBoxes"></div>
+          <button class="btn" id="nNew" type="button" style="width:auto;margin:0;padding:9px 18px">Escrever anotação</button>
+        </div>
+        <div id="nCompWrap" class="hidden"></div>
+        <div class="ncards" id="nCards"></div>
+        <div class="row" style="margin-top:14px;justify-content:flex-start;gap:10px">
+          <span>Agrupar por:</span>
+          <div class="nbar"><button type="button" class="nb on" id="ngTipo">Tipo</button><button type="button" class="nb" id="ngPessoa">Pessoa</button></div>
+        </div>
+      </div>
+      <div class="vcard" id="nList" style="margin-top:12px"></div>
+      <p class="note" style="margin-top:12px">Anotações são para aprendizado e conversa entre as pessoas. Não escreva dados pessoais de clientes (CPF, telefone, endereço).</p>
     </div>
 
     <!-- aba acessos (só liderança) -->
@@ -369,7 +424,7 @@ supa.auth.onAuthStateChange((event, session) => {
   if (session) setTimeout(() => bootstrap(session), 0); else showLogin();
 });
 function showLogin() {
-  me = null; DATA = []; closeDrawer();
+  me = null; DATA = []; NOTES = []; NPEOPLE = new Map(); clearInterval(notesTimer); closeDrawer();
   $('app').classList.add('hidden'); $('login').classList.remove('hidden');
 }
 async function bootstrap(session) {
@@ -421,12 +476,13 @@ async function startApp(rows) {
   DATA = rows || await fetchAll();
   $('loading').classList.add('hidden'); $('tab-conv').classList.remove('hidden');
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'conv'));
-  ['tab-ana', 'tab-acc'].forEach(id => $(id).classList.add('hidden'));
-  viewAs = null;
+  ['tab-ana', 'tab-dev', 'tab-acc'].forEach(id => $(id).classList.add('hidden'));
+  viewAs = null; nbox = 'rec'; nft = null; $('nCompWrap').classList.add('hidden'); $('nCompWrap').innerHTML = '';
   const nomes = [...new Set(DATA.map(c => c.agent))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   $('viewAs').innerHTML = '<option value="">Ver como: eu mesmo</option>' + nomes.map(n => `<option value="${esc(n)}">Ver como: ${esc(n)}</option>`).join('');
   $('viewAs').classList.toggle('hidden', me.perfil !== 'lider'); $('viewAs').value = '';
   applyView();
+  loadNotes();
   if (me.perfil === 'lider') loadPeople();
 }
 function applyView() {
@@ -434,7 +490,8 @@ function applyView() {
   $('viewBar').classList.toggle('hidden', !sim);
   $('viewBar').textContent = sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; volte em "Ver como: eu mesmo".` : '';
   $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider' || sim);
-  if (sim && !$('tab-acc').classList.contains('hidden')) { document.querySelector('.tab[data-tab=conv]').click(); }
+  $('tabDev').classList.toggle('hidden', sim);
+  if (sim && (!$('tab-acc').classList.contains('hidden') || !$('tab-dev').classList.contains('hidden'))) { document.querySelector('.tab[data-tab=conv]').click(); }
   FILTERS.forEach(id => { $(id).value = ''; }); $('dAgent').value = '';
   resetPeriods();
   shown = PAGE; closeDrawer(); setupFilters(); render();
@@ -545,9 +602,12 @@ function openDrawer(c) {
       ${c.pausas ? `<div style="grid-column:1/-1;border:1px dashed var(--line);border-radius:8px;padding:8px"><span>Adiamento estimado</span>${c.pausas} pausa(s) de 12h ou mais foram descontadas do tempo de atendimento.</div>` : ''}
     </div>
     ${sec('Mensagens')}<div id="transcr" class="note">Carregando mensagens…</div>
-    <p class="note" style="margin-top:12px">Telefones, CPF, CNPJ, CEP e e-mails foram ocultados nas mensagens.</p>`;
+    <p class="note" style="margin-top:12px">Telefones, CPF, CNPJ, CEP e e-mails foram ocultados nas mensagens.</p>
+    <div id="dNotes" class="dnotes"></div>`;
   $('drawer').classList.add('open');
+  drawerQuote = '';
   loadMessages(c);
+  drawerId = c.id; renderDrawerNotes();
 }
 let drawerId = null;
 const hora = d => d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -559,7 +619,7 @@ function renderMessages(list, c) {
     const cls = m.remetente === 'ATENDENTE' ? 'a' : m.remetente === 'CLIENTE' ? 'c' : 'i';
     const quem = m.remetente === 'ATENDENTE' ? (m.nome || c.agent) : m.remetente === 'CLIENTE' ? 'Cliente' : 'IA';
     const pre = m.tipo === 'audio_transcription' ? '[áudio transcrito] ' : m.tipo === 'attachment_interpretation' ? '[anexo] ' : '';
-    return `<div class="msg ${cls}">${esc(pre + (m.texto || ''))}<small>${esc(quem)} · ${hora(m.enviado_em ? new Date(m.enviado_em) : null)}</small></div>`;
+    return `<div class="msg ${cls}">${esc(pre + (m.texto || ''))}<small>${esc(quem)} · ${hora(m.enviado_em ? new Date(m.enviado_em) : null)}</small><button class="qbtn" type="button" data-q="${esc((quem + ': ' + pre + (m.texto || '')).slice(0, 600))}">Anotar trecho</button></div>`;
   }).join('');
 }
 async function loadMessages(c) {
@@ -610,9 +670,10 @@ $('addForm').addEventListener('submit', async e => {
 /* ---------- 6) ABAS + ANÁLISE ---------- */
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
-  ['conv', 'ana', 'acc'].forEach(k => $('tab-' + k).classList.toggle('hidden', t.dataset.tab !== k || (k === 'conv' && $('loading') && !$('loading').classList.contains('hidden'))));
+  ['conv', 'ana', 'dev', 'acc'].forEach(k => $('tab-' + k).classList.toggle('hidden', t.dataset.tab !== k || (k === 'conv' && $('loading') && !$('loading').classList.contains('hidden'))));
   closeDrawer();
   if (t.dataset.tab === 'ana') renderDados();
+  if (t.dataset.tab === 'dev') renderNotes();
 });
 /* ---------- 6) PERÍODO ---------- */
 const pad2 = n => String(n).padStart(2, '0');
@@ -806,6 +867,175 @@ const showTip = (el, x, y) => {
 document.addEventListener('pointermove', e => { const el = e.target.closest && e.target.closest('[data-tip]'); if (el) showTip(el, e.clientX, e.clientY); else tip.style.display = 'none'; });
 document.addEventListener('focusin', e => { const el = e.target.closest && e.target.closest('[data-tip]'); if (el) { const r = el.getBoundingClientRect(); showTip(el, r.left + r.width / 2, r.top); } });
 document.addEventListener('focusout', () => { tip.style.display = 'none'; });
+
+/* ---------- 8) DESENVOLVIMENTO: anotações entre atendentes e liderança ---------- */
+const TIPOS = [['melhoria', 'Ponto de melhoria'], ['analise', 'Análise'], ['elogio', 'Elogio'], ['duvida', 'Dúvida']];
+const TIPO_L = Object.fromEntries(TIPOS);
+const STATUS = [['para_trabalhar', 'Para trabalhar'], ['trabalhando', 'Trabalhando'], ['evolui', 'Evoluí']];
+const STATUS_L = Object.fromEntries(STATUS);
+let NOTES = [], NPEOPLE = new Map(), nbox = 'rec', ngrp = 'tipo', nft = null, notesTimer = null;
+const pname = id => { const p = NPEOPLE.get(id); return p ? p.nome : 'alguém'; };
+const ini = n => String(n).trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+
+async function loadNotes() {
+  if (!me) return;
+  try {
+    const pe = await supa.from('atendentes').select('id,nome,perfil,ativo,lider_direto_id,ve_tudo_anotacoes');
+    if (pe.error) throw pe.error;
+    NPEOPLE = new Map(pe.data.map(p => [p.id, p]));
+    let all = [], from = 0;
+    for (;;) {
+      const r = await supa.from('anotacoes').select('*').order('criado_em', { ascending: false }).range(from, from + 999);
+      if (r.error) throw r.error;
+      all = all.concat(r.data);
+      if (r.data.length < 1000) break;
+      from += 1000;
+    }
+    NOTES = all;
+  } catch (e) { $('nList').textContent = 'Não foi possível carregar as anotações: ' + (e.message || e); return; }
+  updateBell(); renderNotes(); if ($('drawer').classList.contains('open') && drawerId) renderDrawerNotes();
+  clearInterval(notesTimer); notesTimer = setInterval(() => { if (me) loadNotes(); }, 60000);
+}
+const isRec = n => me && n.para_id === me.id && !n.privado && n.de_id !== me.id;
+const isEnv = n => me && n.de_id === me.id && !n.privado;
+const isRas = n => me && n.privado && n.de_id === me.id;
+const isTime = n => me && !n.privado && n.de_id !== me.id && n.para_id !== me.id;
+const unreadN = () => NOTES.filter(n => isRec(n) && !n.lida_em).length;
+function updateBell() { const k = unreadN(), b = $('bellN'); b.textContent = k > 99 ? '99+' : k; b.classList.toggle('hidden', !k); $('bell').setAttribute('aria-label', k ? `Notificações: ${k} nova(s)` : 'Notificações'); }
+const notesOf = box => NOTES.filter(box === 'rec' ? isRec : box === 'env' ? isEnv : box === 'ras' ? isRas : isTime);
+
+function noteItem(n, box) {
+  const outro = box === 'rec' ? n.de_id : n.para_id;
+  const quem = n.privado ? '<b>Rascunho privado</b>' : box === 'time' ? `<b>${esc(pname(n.de_id))}</b> para <b>${esc(pname(n.para_id))}</b>` : `<b>${box === 'rec' ? 'de ' : 'para '}${esc(pname(outro))}</b>`;
+  const novo = box === 'rec' && !n.lida_em;
+  const meuStatus = n.tipo === 'melhoria' && n.para_id === me.id;
+  const status = meuStatus
+    ? `<select data-st="${n.id}" aria-label="Situação do ponto de melhoria">${STATUS.map(([k, l]) => `<option value="${k}" ${n.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`
+    : (n.tipo === 'melhoria' && n.status ? `<span class="tp analise">${STATUS_L[n.status]}</span>` : '');
+  const conv = n.conversation_id ? `<a data-conv="${esc(n.conversation_id)}">Abrir conversa …${esc(n.conversation_id.slice(-8))}</a>` : '<span>Sem conversa ligada</span>';
+  const apagar = n.privado ? `<button class="lnk" data-del="${n.id}" type="button">Apagar rascunho</button>` : '';
+  return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${esc(ini(n.privado ? me.nome : pname(outro)))}</div><div style="flex:1;min-width:0">
+    <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}</div>
+    ${n.trecho ? `<div class="nquote">${esc(n.trecho)}</div>` : ''}<div class="ntxt">${esc(n.texto)}</div>
+    <div class="nact">${conv}${status}${apagar}</div></div></div>`;
+}
+
+function renderNotes() {
+  if (!me) return;
+  if (nbox === 'time' && !notesOf('time').length) nbox = 'rec';
+  const boxes = [['rec', 'Recebidas'], ['env', 'Enviadas'], ['ras', 'Rascunhos']];
+  if (notesOf('time').length) boxes.push(['time', 'Do time']);
+  $('nBoxes').innerHTML = boxes.map(([k, l]) => `<button type="button" class="nb${nbox === k ? ' on' : ''}" data-b="${k}">${l} (${notesOf(k).length})</button>`).join('');
+  const L = notesOf(nbox);
+  $('nCards').innerHTML = TIPOS.map(([k, l]) => `<button type="button" class="ncard${nft === k ? ' on' : ''}" data-t="${k}"><span class="tp ${k}">${l}</span><div class="v">${L.filter(n => n.tipo === k).length}</div></button>`).join('');
+  $('ngTipo').classList.toggle('on', ngrp === 'tipo'); $('ngPessoa').classList.toggle('on', ngrp === 'pessoa');
+  const S = L.filter(n => !nft || n.tipo === nft);
+  let h = '';
+  if (!S.length) h = `<div class="vempty">${nbox === 'rec' ? 'Quando alguém enviar uma anotação para você, ela aparece aqui.' : nbox === 'env' ? 'Você ainda não enviou anotações.' : nbox === 'ras' ? 'Seus rascunhos privados aparecem aqui. Só você vê.' : 'Nada por aqui.'} Use "Escrever anotação" ou abra uma conversa para anotar um trecho.</div>`;
+  else if (ngrp === 'tipo') h = TIPOS.map(([k, l]) => { const G = S.filter(n => n.tipo === k); return G.length ? `<div class="ngroup"><span class="tp ${k}">${l} · ${G.length}</span>${k === 'melhoria' ? ' <span class="when" style="font-size:12px;color:var(--muted)">para focar</span>' : ''}${G.map(n => noteItem(n, nbox)).join('')}</div>` : ''; }).join('');
+  else {
+    const P = new Map();
+    S.forEach(n => { const k = nbox === 'rec' ? n.de_id : n.para_id; (P.get(k) || P.set(k, []).get(k)).push(n); });
+    h = [...P.entries()].map(([k, G]) => `<div class="ngroup"><b>${nbox === 'rec' ? 'De ' : nbox === 'env' ? 'Para ' : ''}${esc(pname(k))} · ${G.length}</b>${G.map(n => noteItem(n, nbox)).join('')}</div>`).join('');
+  }
+  $('nList').innerHTML = h;
+}
+
+/* escrever */
+const recipients = () => [...NPEOPLE.values()].filter(p => p.ativo && p.id !== me.id && (me.ve_tudo_anotacoes || p.id === me.lider_direto_id || p.lider_direto_id === me.id))
+  .sort((a, b) => (b.id === me.lider_direto_id) - (a.id === me.lider_direto_id) || a.nome.localeCompare(b.nome, 'pt-BR'));
+function composerHtml(p, comConversa) {
+  return `<div class="comp"><div class="cgrid">
+    <div><label for="${p}Tipo">Tipo</label><select id="${p}Tipo">${TIPOS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
+    <div><label for="${p}Dest">Para</label><select id="${p}Dest"></select></div>
+    ${comConversa ? `<div><label for="${p}Conv">Conversa (opcional)</label><input id="${p}Conv" placeholder="Protocolo da conversa" inputmode="numeric"></div>` : ''}
+  </div><div id="${p}Quote"></div>
+  <label for="${p}Txt">Anotação</label>
+  <textarea id="${p}Txt" rows="3" maxlength="4000" placeholder="Escreva a sua análise ou o ponto que quer discutir"></textarea>
+  <div class="alert" id="${p}Msg" role="status"></div>
+  <button class="btn" id="${p}Send" type="button" style="width:auto;margin-top:10px;padding:9px 18px"></button></div>`;
+}
+function prepComposer(p, getCtx) {
+  const dest = $(p + 'Dest');
+  dest.innerHTML = recipients().map(r => `<option value="${r.id}">${esc(r.nome)}${r.id === me.lider_direto_id ? ' (liderança direta)' : ''}</option>`).join('') + '<option value="priv">Só para mim (rascunho privado)</option>';
+  const lbl = () => { $(p + 'Send').textContent = dest.value === 'priv' ? 'Salvar rascunho' : 'Enviar para ' + (NPEOPLE.get(dest.value) || {}).nome; };
+  dest.onchange = lbl; lbl();
+  $(p + 'Txt').oninput = () => msg($(p + 'Msg'), '', '');
+  $(p + 'Send').onclick = async () => {
+    const ctx = getCtx(), txt = $(p + 'Txt').value.trim(), priv = dest.value === 'priv', tipo = $(p + 'Tipo').value;
+    if (!txt) return msg($(p + 'Msg'), 'err', 'Escreva a anotação antes de enviar.');
+    let conv = ctx.conv || null;
+    if (p === 'np') {
+      conv = $('npConv').value.trim() || null;
+      if (conv && !DATA.some(c => c.id === conv)) return msg($(p + 'Msg'), 'err', 'Não achei essa conversa entre as que você pode ver. Confira o protocolo.');
+    }
+    $(p + 'Send').disabled = true;
+    const { data, error } = await supa.from('anotacoes').insert({ de_id: me.id, para_id: priv ? me.id : dest.value, tipo, texto: txt, conversation_id: conv, trecho: ctx.quote || null, privado: priv, status: tipo === 'melhoria' ? 'para_trabalhar' : null }).select().single();
+    $(p + 'Send').disabled = false;
+    if (error) return msg($(p + 'Msg'), 'err', 'Não foi possível enviar. ' + error.message);
+    NOTES.unshift(data); $(p + 'Txt').value = '';
+    if (ctx.clearQuote) ctx.clearQuote();
+    msg($(p + 'Msg'), 'ok', priv ? 'Rascunho salvo. Só você vê.' : 'Anotação enviada para ' + pname(data.para_id) + '.');
+    updateBell(); renderNotes(); if (p === 'nd') renderDrawerNotes(true);
+  };
+}
+$('nNew').onclick = () => {
+  const w = $('nCompWrap'), abrir = w.classList.contains('hidden');
+  w.classList.toggle('hidden', !abrir);
+  if (abrir) { w.innerHTML = composerHtml('np', true); prepComposer('np', () => ({})); $('npTxt').focus(); } else w.innerHTML = '';
+};
+
+/* anotações dentro da conversa */
+let drawerQuote = '';
+function renderQuote(p, t) { $(p + 'Quote').innerHTML = t ? `<span class="qchip">Trecho: ${esc(t.slice(0, 80))}${t.length > 80 ? '…' : ''}<a data-rmq="1">remover</a></span>` : ''; }
+function renderDrawerNotes(keepMsg) {
+  const box = $('dNotes'); if (!box || !me || !drawerId) return;
+  const L = NOTES.filter(n => n.conversation_id === drawerId && (!n.privado || n.de_id === me.id));
+  const msgHtml = keepMsg && $('ndMsg') ? $('ndMsg').outerHTML : '';
+  box.innerHTML = `<div class="vsecs" style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em">Anotações desta conversa (${L.length})</div>` +
+    (L.length ? L.map(n => noteItem(n, isTime(n) ? 'time' : n.de_id === me.id ? 'env' : 'rec')).join('') : '<p class="note">Ainda não há anotações aqui. Use "Anotar trecho" nas mensagens para citar uma parte da conversa.</p>') + composerHtml('nd', false);
+  prepComposer('nd', () => ({ conv: drawerId, quote: drawerQuote, clearQuote: () => { drawerQuote = ''; renderQuote('nd', ''); } }));
+  renderQuote('nd', drawerQuote);
+  if (msgHtml) { const m = $('ndMsg'); m.outerHTML = msgHtml; }
+}
+
+/* cliques */
+$('nBoxes').onclick = e => { const b = e.target.closest('[data-b]'); if (b) { nbox = b.dataset.b; nft = null; renderNotes(); } };
+$('nCards').onclick = e => { const b = e.target.closest('[data-t]'); if (b) { nft = nft === b.dataset.t ? null : b.dataset.t; renderNotes(); } };
+$('ngTipo').onclick = () => { ngrp = 'tipo'; renderNotes(); };
+$('ngPessoa').onclick = () => { ngrp = 'pessoa'; renderNotes(); };
+async function noteClick(e) {
+  const a = e.target.closest('[data-conv]');
+  if (a) { const c = DATA.find(x => x.id === a.dataset.conv); if (c) openDrawer(c); else alert('Essa conversa não está entre as que você pode ver agora.'); return; }
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    if (!confirm('Apagar este rascunho? Isso não pode ser desfeito.')) return;
+    const { error } = await supa.from('anotacoes').delete().eq('id', del.dataset.del);
+    if (!error) { NOTES = NOTES.filter(n => n.id !== del.dataset.del); renderNotes(); renderDrawerNotes(); updateBell(); }
+    return;
+  }
+  if (e.target.closest('select') || e.target.closest('a') || e.target.closest('button')) return;
+  const it = e.target.closest('.nit'); if (!it) return;
+  const n = NOTES.find(x => x.id === it.dataset.id);
+  if (n && isRec(n) && !n.lida_em) {
+    const lida = new Date().toISOString();
+    const { error } = await supa.from('anotacoes').update({ lida_em: lida }).eq('id', n.id);
+    if (!error) { n.lida_em = lida; updateBell(); renderNotes(); renderDrawerNotes(); }
+  }
+}
+async function statusChange(e) {
+  const s = e.target.closest('[data-st]'); if (!s) return;
+  const { error } = await supa.from('anotacoes').update({ status: s.value }).eq('id', s.dataset.st);
+  if (!error) { const n = NOTES.find(x => x.id === s.dataset.st); if (n) n.status = s.value; renderNotes(); renderDrawerNotes(); }
+}
+$('nList').addEventListener('click', noteClick); $('nList').addEventListener('change', statusChange);
+$('dBody').addEventListener('click', e => {
+  const q = e.target.closest('.qbtn'); if (q) { drawerQuote = q.dataset.q; if ($('ndQuote')) renderQuote('nd', drawerQuote); $('ndTxt') && $('ndTxt').focus(); return; }
+  if (e.target.closest('[data-rmq]')) { drawerQuote = ''; renderQuote('nd', ''); return; }
+  if (e.target.closest('#dNotes')) noteClick(e);
+});
+$('dBody').addEventListener('change', e => { if (e.target.closest('#dNotes')) statusChange(e); });
+$('bell').onclick = () => { nbox = 'rec'; nft = null; document.querySelector('.tab[data-tab=dev]').click(); };
 
 /* sessão já existente (recarregar a página) */
 supa.auth.getSession().then(({ data }) => { if (!data.session) showLogin(); });
