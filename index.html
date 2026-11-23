@@ -147,6 +147,13 @@
   .nact a{color:var(--good);cursor:pointer;text-decoration:underline}
   .nact select{width:auto;padding:3px 8px;font-size:12px;border-radius:8px}
   .nact .lnk{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0;font-size:12px}
+  .nact .rbtn{color:var(--ink);font-weight:600}
+  .nreps{margin-top:8px;border-left:2px solid var(--line);padding-left:12px}
+  .nrep{display:flex;gap:8px;padding:6px 0}
+  .nrep.novo{background:linear-gradient(90deg,rgba(75,209,132,.12),transparent)}
+  .nrep .nav{width:24px;height:24px;font-size:10px}
+  .rform{margin-top:8px}
+  .rform textarea{width:100%}
   .ngroup{margin-top:14px}
   .comp{border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px;background:var(--bg)}
   .cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:8px}
@@ -498,7 +505,7 @@ supa.auth.onAuthStateChange((event, session) => {
   if (session) setTimeout(() => bootstrap(session), 0); else showLogin();
 });
 function showLogin() {
-  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
+  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
   $('app').classList.add('hidden'); $('login').classList.remove('hidden');
 }
 async function bootstrap(session) {
@@ -994,7 +1001,31 @@ const isRas = n => me && n.privado && n.de_id === actor().id;
 const isTime = n => me && !n.privado && n.de_id !== actor().id && n.para_id !== actor().id;
 const unreadN = () => NOTES.filter(n => me && n.para_id === me.id && !n.privado && n.de_id !== me.id && !n.lida_em).length;
 function updateBell() { renderBell(); const k = unreadN(), b = $('bellN'); b.textContent = k > 99 ? '99+' : k; b.classList.toggle('hidden', !k); $('bell').setAttribute('aria-label', k ? `Notificações: ${k} nova(s)` : 'Notificações'); }
-const notesOf = box => NOTES.filter(box === 'rec' ? isRec : box === 'env' ? isEnv : box === 'ras' ? isRas : isTime);
+const notesOf = box => NOTES.filter(n => !n.resposta_a).filter(box === 'rec' ? isRec : box === 'env' ? isEnv : box === 'ras' ? isRas : isTime);
+
+/* respostas: ficam penduradas na anotação de origem, em ordem de envio */
+TIPO_L.resposta = 'Resposta';
+const RDRAFT = new Map();   // rascunho de resposta por anotação (sobrevive às atualizações automáticas)
+const repliesOf = id => NOTES.filter(r => r.resposta_a === id).sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
+const rootOf = n => n.resposta_a ? NOTES.find(x => x.id === n.resposta_a) || n : n;
+const podeResp = n => !simulando() && !n.privado && !n.resposta_a && (n.de_id === me.id || n.para_id === me.id);
+function keepFocus(box, fn) {
+  const af = document.activeElement, k = af && af.classList && af.classList.contains('rptxt') && box.contains(af) ? [af.dataset.rid, af.selectionStart, af.selectionEnd] : null;
+  fn();
+  if (k) { const t = box.querySelector(`.rptxt[data-rid="${k[0]}"]`); if (t) { t.focus(); try { t.setSelectionRange(k[1], k[2]); } catch (_) {} } }
+}
+function repItem(r) {
+  const meu = r.de_id === actor().id && !simulando(), novo = !simulando() && r.para_id === me.id && !r.lida_em;
+  return `<div class="nrep${novo ? ' novo' : ''}" data-rep="${r.id}"><div class="nav">${avatarHtml(r.de_id, pname(r.de_id))}</div><div style="flex:1;min-width:0">
+    <div class="nmeta"><b>${esc(meu ? 'Você' : pname(r.de_id))}</b><span class="when">${hora(new Date(r.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}</div>
+    <div class="ntxt">${esc(r.texto)}</div>${meu ? `<div class="nact"><button class="lnk" data-del="${r.id}" type="button">Excluir resposta</button></div>` : ''}</div></div>`;
+}
+function threadHtml(n) {
+  const reps = repliesOf(n.id);
+  const form = RDRAFT.has(n.id) && podeResp(n)
+    ? `<div class="rform"><textarea class="rptxt" data-rid="${n.id}" rows="2" maxlength="4000" aria-label="Sua resposta para ${esc(pname(n.de_id === me.id ? n.para_id : n.de_id))}" placeholder="Escreva a sua resposta para ${esc(pname(n.de_id === me.id ? n.para_id : n.de_id))}">${esc(RDRAFT.get(n.id))}</textarea><div class="alert" data-rmsg="${n.id}" role="status"></div><div class="nact" style="margin-top:6px"><button class="btn" data-rsend="${n.id}" type="button" style="width:auto;padding:7px 16px">Enviar resposta</button><button class="lnk" data-rcancel="${n.id}" type="button">Cancelar</button></div></div>` : '';
+  return (reps.length ? `<div class="nreps">${reps.map(repItem).join('')}</div>` : '') + form;
+}
 
 function noteItem(n, box) {
   const outro = box === 'rec' ? n.de_id : n.para_id;
@@ -1010,10 +1041,12 @@ function noteItem(n, box) {
     : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">Abrir conversa …${esc(n.conversation_id.slice(-8))}</a>`
     : `<span title="Essa conversa não está mais no site, ou você não tem acesso a ela">Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`;
   const apagar = n.de_id === actor().id && !simulando() ? `<button class="lnk" data-del="${n.id}" type="button">${n.privado ? 'Apagar rascunho' : 'Excluir'}</button>` : '';
+  const novaR = !simulando() && repliesOf(n.id).some(r => r.para_id === me.id && !r.lida_em);
+  const resp = podeResp(n) && !RDRAFT.has(n.id) ? `<button class="lnk rbtn" data-reply="${n.id}" type="button">Responder</button>` : '';
   return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${avatarHtml(n.de_id, pname(n.de_id))}</div><div style="flex:1;min-width:0">
-    <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}</div>
+    <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}${novaR ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova resposta</span>' : ''}</div>
     ${n.trecho ? `<div class="nquote" title="Clique para ver o trecho inteiro">${esc(n.trecho)}</div>` : ''}<div class="ntxt">${esc(n.texto)}</div>
-    <div class="nact">${conv}${status}${apagar}</div></div></div>`;
+    <div class="nact">${resp}${conv}${status}${apagar}</div>${threadHtml(n)}</div></div>`;
 }
 
 function renderNotes() {
@@ -1037,7 +1070,7 @@ function renderNotes() {
     S.forEach(n => { const k = nbox === 'rec' ? n.de_id : n.para_id; (P.get(k) || P.set(k, []).get(k)).push(n); });
     h = [...P.entries()].map(([k, G]) => `<div class="ngroup"><b>${nbox === 'rec' ? 'De ' : nbox === 'env' ? 'Para ' : ''}${esc(pname(k))} · ${G.length}</b>${G.map(n => noteItem(n, nbox)).join('')}</div>`).join('');
   }
-  $('nList').innerHTML = h;
+  keepFocus($('nList'), () => { $('nList').innerHTML = h; });
 }
 
 /* escrever */
@@ -1099,8 +1132,9 @@ function renderDrawerNotes(force) {
   const cc = DATA.find(x => x.id === drawerId); if (cc && $('dNav')) setTimeout(() => renderDrawerNav(cc), 0);
   if (!$('dNotesList')) box.innerHTML = '<div id="dNotesList"></div><div id="dNotesComp"></div>';
   const L = NOTES.filter(n => n.conversation_id === drawerId && (!n.privado || n.de_id === actor().id));
-  $('dNotesList').innerHTML = `<div class="vsecs" style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em">Anotações desta conversa (${L.length})</div>` +
+  const hl = `<div class="vsecs" style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em">Anotações desta conversa (${L.length})</div>` +
     (L.length ? L.map(n => noteItem(n, isTime(n) ? 'time' : n.de_id === actor().id ? 'env' : 'rec')).join('') : '<p class="note">Ainda não há anotações aqui. Use "Anotar trecho" nas mensagens para citar uma parte da conversa.</p>');
+  keepFocus($('dNotesList'), () => { $('dNotesList').innerHTML = hl; });
   /* o campo de escrever só é montado de novo se estiver vazio, para nunca apagar o que a pessoa está digitando */
   if (force && $('ndTxt') && !$('ndTxt').value.trim()) $('dNotesComp').innerHTML = '';
   if (!$('ndTxt')) {
@@ -1120,25 +1154,57 @@ async function noteClick(e) {
   const a = e.target.closest('[data-conv]');
   if (a) { const c = DATA.find(x => x.id === a.dataset.conv); if (c) openDrawer(c); else alert('Essa conversa não está entre as que você pode ver agora.'); return; }
   if (simulando()) return;
+  const host = e.target.closest('#dBody') || $('nList');
+  const rb = e.target.closest('[data-reply]');
+  if (rb) {
+    const id = rb.dataset.reply; if (!RDRAFT.has(id)) RDRAFT.set(id, '');
+    renderNotes(); renderDrawerNotes();
+    const t = host.querySelector(`.rptxt[data-rid="${id}"]`); if (t) t.focus();
+    return;
+  }
+  const rc = e.target.closest('[data-rcancel]');
+  if (rc) { RDRAFT.delete(rc.dataset.rcancel); renderNotes(); renderDrawerNotes(); return; }
+  const rs = e.target.closest('[data-rsend]');
+  if (rs) return sendReply(rs.dataset.rsend);
   const del = e.target.closest('[data-del]');
   if (del) {
     const n = NOTES.find(x => x.id === del.dataset.del); if (!n) return;
-    const ask = n.privado ? 'Apagar este rascunho? Isso não pode ser desfeito.' : `Excluir esta anotação? Ela some também para ${pname(n.para_id)} e para quem acompanha. Isso não pode ser desfeito.`;
+    const k = repliesOf(n.id).length;
+    const ask = n.privado ? 'Apagar este rascunho? Isso não pode ser desfeito.'
+      : n.resposta_a ? 'Excluir esta resposta? Ela some também para quem a recebeu. Isso não pode ser desfeito.'
+      : `Excluir esta anotação${k ? ` e ${k === 1 ? 'a resposta dela' : 'as ' + k + ' respostas dela'}` : ''}? Ela some também para ${pname(n.para_id)} e para quem acompanha. Isso não pode ser desfeito.`;
     if (!confirm(ask)) return;
     const { data, error } = await supa.from('anotacoes').delete().eq('id', n.id).select('id');
-    if (error || !data || !data.length) { alert('Não foi possível excluir a anotação.'); return; }
-    NOTES = NOTES.filter(x => x.id !== n.id); renderNotes(); renderDrawerNotes(); updateBell();
+    if (error || !data || !data.length) { alert('Não foi possível excluir.'); return; }
+    RDRAFT.delete(n.id);
+    NOTES = NOTES.filter(x => x.id !== n.id && x.resposta_a !== n.id); renderNotes(); renderDrawerNotes(); updateBell();
     return;
   }
-  if (e.target.closest('select') || e.target.closest('a') || e.target.closest('button')) return;
+  if (e.target.closest('select') || e.target.closest('a') || e.target.closest('button') || e.target.closest('textarea')) return;
   const it = e.target.closest('.nit'); if (!it) return;
-  const n = NOTES.find(x => x.id === it.dataset.id);
-  if (n && isRec(n) && !n.lida_em) {
+  const n = NOTES.find(x => x.id === it.dataset.id); if (!n) return;
+  /* abrir a conversa (clicar nela) marca como lida a anotação e as respostas dirigidas a você */
+  const ids = [n, ...repliesOf(n.id)].filter(x => x.para_id === me.id && !x.privado && x.de_id !== me.id && !x.lida_em).map(x => x.id);
+  if (ids.length) {
     const lida = new Date().toISOString();
-    const { error } = await supa.from('anotacoes').update({ lida_em: lida }).eq('id', n.id);
-    if (!error) { n.lida_em = lida; updateBell(); renderNotes(); renderDrawerNotes(); }
+    const { error } = await supa.from('anotacoes').update({ lida_em: lida }).in('id', ids);
+    if (!error) { NOTES.forEach(x => { if (ids.includes(x.id)) x.lida_em = lida; }); updateBell(); renderNotes(); renderDrawerNotes(); }
   }
 }
+async function sendReply(id) {
+  const root = NOTES.find(x => x.id === id); if (!root || simulando() || !podeResp(root)) return;
+  const txt = (RDRAFT.get(id) || '').trim();
+  const say = (k, t) => document.querySelectorAll(`[data-rmsg="${id}"]`).forEach(m => msg(m, k, t));
+  if (!txt) return say('err', 'Escreva a resposta antes de enviar.');
+  const btns = [...document.querySelectorAll(`[data-rsend="${id}"]`)]; btns.forEach(b => { b.disabled = true; });
+  const para = root.de_id === me.id ? root.para_id : root.de_id;
+  const { data, error } = await supa.from('anotacoes').insert({ de_id: me.id, para_id: para, tipo: 'resposta', texto: txt, resposta_a: id, privado: false }).select().single();
+  btns.forEach(b => { b.disabled = false; });
+  if (error) return say('err', 'Não foi possível enviar. ' + error.message);
+  NOTES.push(data); RDRAFT.delete(id); updateBell(); renderNotes(); renderDrawerNotes();
+}
+const rdraft = e => { const t = e.target.closest && e.target.closest('.rptxt'); if (t) RDRAFT.set(t.dataset.rid, t.value); };
+$('nList').addEventListener('input', rdraft); $('dBody').addEventListener('input', rdraft);
 async function statusChange(e) {
   const s = e.target.closest('[data-st]'); if (!s || simulando()) return;
   const { error } = await supa.from('anotacoes').update({ status: s.value }).eq('id', s.dataset.st);
@@ -1157,7 +1223,7 @@ function renderBell() {
   const box = $('bellPanel'); if (!box || !me) return;
   const L = recReal().sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em)), novas = L.filter(n => !n.lida_em).length;
   box.innerHTML = `<div class="bphead"><span>Notificações${novas ? ` · ${novas} nova${novas > 1 ? 's' : ''}` : ''}</span>${novas ? '<button class="lnk" type="button" data-all="1">Marcar tudo como lida</button>' : ''}</div>` +
-    (L.length ? L.slice(0, 8).map(n => `<button class="bpit${n.lida_em ? '' : ' novo'}" type="button" data-nid="${n.id}"><div class="nav">${avatarHtml(n.de_id, pname(n.de_id))}</div><div style="flex:1;min-width:0"><div class="t"><b>${esc(pname(n.de_id))}</b> enviou ${/^[aeiou]/i.test(TIPO_L[n.tipo]) ? 'uma' : 'um'} <b>${esc(TIPO_L[n.tipo].toLowerCase())}</b>: ${esc(n.texto)}</div><div class="w">${hora(new Date(n.criado_em))}${n.lida_em ? '' : ' · nova'}</div></div></button>`).join('')
+    (L.length ? L.slice(0, 8).map(n => `<button class="bpit${n.lida_em ? '' : ' novo'}" type="button" data-nid="${n.id}"><div class="nav">${avatarHtml(n.de_id, pname(n.de_id))}</div><div style="flex:1;min-width:0"><div class="t"><b>${esc(pname(n.de_id))}</b> ${n.resposta_a ? 'respondeu a uma anotação' : `enviou ${/^[aeiou]/i.test(TIPO_L[n.tipo]) ? 'uma' : 'um'} <b>${esc(TIPO_L[n.tipo].toLowerCase())}</b>`}: ${esc(n.texto)}</div><div class="w">${hora(new Date(n.criado_em))}${n.lida_em ? '' : ' · nova'}</div></div></button>`).join('')
       : '<div class="bpempty">Você não tem notificações por enquanto. Quando alguém enviar uma anotação para você, ela aparece aqui.</div>') +
     `<div class="bpfoot"><button class="lnk" type="button" data-todas="1">Ver todas em Desenvolvimento</button></div>`;
 }
@@ -1171,7 +1237,9 @@ function bellOpen(on) {
 function irParaAnotacoes(id) {
   bellOpen(false);
   if (viewAs) { viewAs = null; $('viewAs').value = ''; applyView(); }
-  nbox = 'rec'; nft = null; document.querySelector('.tab[data-tab=dev]').click();
+  const alvo = id ? NOTES.find(x => x.id === id) : null, raiz = alvo ? rootOf(alvo) : null;
+  nbox = raiz && isEnv(raiz) ? 'env' : 'rec'; nft = null; document.querySelector('.tab[data-tab=dev]').click();
+  if (raiz) id = raiz.id;
   if (id) setTimeout(() => { const el = document.querySelector(`#nList .nit[data-id="${id}"]`); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1700); } }, 80);
 }
 $('bell').onclick = e => { e.stopPropagation(); bellOpen($('bellPanel').classList.contains('hidden')); };
