@@ -313,6 +313,7 @@
 
     <!-- aba desenvolvimento -->
     <div id="tab-dev" class="hidden">
+      <div id="nPreview" class="viewbar hidden"></div>
       <div class="filters">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
           <div class="nbar" id="nBoxes"></div>
@@ -488,10 +489,11 @@ async function startApp(rows) {
 function applyView() {
   const sim = !!viewAs;
   $('viewBar').classList.toggle('hidden', !sim);
-  $('viewBar').textContent = sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; volte em "Ver como: eu mesmo".` : '';
+  $('viewBar').textContent = sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : '';
   $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider' || sim);
-  $('tabDev').classList.toggle('hidden', sim);
-  if (sim && (!$('tab-acc').classList.contains('hidden') || !$('tab-dev').classList.contains('hidden'))) { document.querySelector('.tab[data-tab=conv]').click(); }
+  if (sim && !$('tab-acc').classList.contains('hidden')) { document.querySelector('.tab[data-tab=conv]').click(); }
+  nbox = 'rec'; nft = null; $('nCompWrap').classList.add('hidden'); $('nCompWrap').innerHTML = '';
+  if (NPEOPLE) renderNotes();
   FILTERS.forEach(id => { $(id).value = ''; }); $('dAgent').value = '';
   resetPeriods();
   shown = PAGE; closeDrawer(); setupFilters(); render();
@@ -874,6 +876,9 @@ const TIPO_L = Object.fromEntries(TIPOS);
 const STATUS = [['para_trabalhar', 'Para trabalhar'], ['trabalhando', 'Trabalhando'], ['evolui', 'Evoluí']];
 const STATUS_L = Object.fromEntries(STATUS);
 let NOTES = [], NPEOPLE = new Map(), nbox = 'rec', ngrp = 'tipo', nft = null, notesTimer = null;
+const simPerson = () => viewAs ? [...NPEOPLE.values()].find(p => p.nome.trim().toLowerCase() === viewAs.trim().toLowerCase()) || null : null;
+const simulando = () => !!viewAs;                 // previa: nada é enviado nem alterado
+const actor = () => simPerson() || me;
 const pname = id => { const p = NPEOPLE.get(id); return p ? p.nome : 'alguém'; };
 const ini = n => String(n).trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
@@ -896,11 +901,11 @@ async function loadNotes() {
   updateBell(); renderNotes(); if ($('drawer').classList.contains('open') && drawerId) renderDrawerNotes();
   clearInterval(notesTimer); notesTimer = setInterval(() => { if (me) loadNotes(); }, 60000);
 }
-const isRec = n => me && n.para_id === me.id && !n.privado && n.de_id !== me.id;
-const isEnv = n => me && n.de_id === me.id && !n.privado;
-const isRas = n => me && n.privado && n.de_id === me.id;
-const isTime = n => me && !n.privado && n.de_id !== me.id && n.para_id !== me.id;
-const unreadN = () => NOTES.filter(n => isRec(n) && !n.lida_em).length;
+const isRec = n => me && n.para_id === actor().id && !n.privado && n.de_id !== actor().id;
+const isEnv = n => me && n.de_id === actor().id && !n.privado;
+const isRas = n => me && n.privado && n.de_id === actor().id;
+const isTime = n => me && !n.privado && n.de_id !== actor().id && n.para_id !== actor().id;
+const unreadN = () => NOTES.filter(n => me && n.para_id === me.id && !n.privado && n.de_id !== me.id && !n.lida_em).length;
 function updateBell() { const k = unreadN(), b = $('bellN'); b.textContent = k > 99 ? '99+' : k; b.classList.toggle('hidden', !k); $('bell').setAttribute('aria-label', k ? `Notificações: ${k} nova(s)` : 'Notificações'); }
 const notesOf = box => NOTES.filter(box === 'rec' ? isRec : box === 'env' ? isEnv : box === 'ras' ? isRas : isTime);
 
@@ -908,13 +913,13 @@ function noteItem(n, box) {
   const outro = box === 'rec' ? n.de_id : n.para_id;
   const quem = n.privado ? '<b>Rascunho privado</b>' : box === 'time' ? `<b>${esc(pname(n.de_id))}</b> para <b>${esc(pname(n.para_id))}</b>` : `<b>${box === 'rec' ? 'de ' : 'para '}${esc(pname(outro))}</b>`;
   const novo = box === 'rec' && !n.lida_em;
-  const meuStatus = n.tipo === 'melhoria' && n.para_id === me.id;
+  const meuStatus = n.tipo === 'melhoria' && n.para_id === actor().id && !simulando();
   const status = meuStatus
     ? `<select data-st="${n.id}" aria-label="Situação do ponto de melhoria">${STATUS.map(([k, l]) => `<option value="${k}" ${n.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`
     : (n.tipo === 'melhoria' && n.status ? `<span class="tp analise">${STATUS_L[n.status]}</span>` : '');
   const conv = n.conversation_id ? `<a data-conv="${esc(n.conversation_id)}">Abrir conversa …${esc(n.conversation_id.slice(-8))}</a>` : '<span>Sem conversa ligada</span>';
-  const apagar = n.privado ? `<button class="lnk" data-del="${n.id}" type="button">Apagar rascunho</button>` : '';
-  return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${esc(ini(n.privado ? me.nome : pname(outro)))}</div><div style="flex:1;min-width:0">
+  const apagar = n.privado && !simulando() ? `<button class="lnk" data-del="${n.id}" type="button">Apagar rascunho</button>` : '';
+  return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${esc(ini(n.privado ? actor().nome : pname(outro)))}</div><div style="flex:1;min-width:0">
     <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}</div>
     ${n.trecho ? `<div class="nquote">${esc(n.trecho)}</div>` : ''}<div class="ntxt">${esc(n.texto)}</div>
     <div class="nact">${conv}${status}${apagar}</div></div></div>`;
@@ -922,9 +927,12 @@ function noteItem(n, box) {
 
 function renderNotes() {
   if (!me) return;
-  if (nbox === 'time' && !notesOf('time').length) nbox = 'rec';
+  if (nbox === 'time' && (simulando() || !notesOf('time').length)) nbox = 'rec';
+  const pv = $('nPreview'), sp = simPerson();
+  pv.classList.toggle('hidden', !simulando());
+  pv.textContent = !simulando() ? '' : sp ? `Prévia como ${sp.nome}: a lista de destinos é a dela e nada é enviado. Aparecem só as anotações dela que você tem permissão de ver (rascunhos privados nunca aparecem).` : `Não encontrei ${viewAs} na lista de acessos, então não dá para simular esta aba.`;
   const boxes = [['rec', 'Recebidas'], ['env', 'Enviadas'], ['ras', 'Rascunhos']];
-  if (notesOf('time').length) boxes.push(['time', 'Do time']);
+  if (!simulando() && notesOf('time').length) boxes.push(['time', 'Do time']);
   $('nBoxes').innerHTML = boxes.map(([k, l]) => `<button type="button" class="nb${nbox === k ? ' on' : ''}" data-b="${k}">${l} (${notesOf(k).length})</button>`).join('');
   const L = notesOf(nbox);
   $('nCards').innerHTML = TIPOS.map(([k, l]) => `<button type="button" class="ncard${nft === k ? ' on' : ''}" data-t="${k}"><span class="tp ${k}">${l}</span><div class="v">${L.filter(n => n.tipo === k).length}</div></button>`).join('');
@@ -942,9 +950,12 @@ function renderNotes() {
 }
 
 /* escrever */
-const recipients = () => [...NPEOPLE.values()].filter(p => p.ativo && p.id !== me.id && (me.ve_tudo_anotacoes || p.id === me.lider_direto_id || p.lider_direto_id === me.id
-    || (me.perfil === 'lider' && p.perfil === 'lider' && me.lider_direto_id && p.lider_direto_id === me.lider_direto_id)))
-  .sort((a, b) => (b.id === me.lider_direto_id) - (a.id === me.lider_direto_id) || a.nome.localeCompare(b.nome, 'pt-BR'));
+const recipients = () => {
+  const a = actor();
+  return [...NPEOPLE.values()].filter(p => p.ativo && p.id !== a.id && (a.ve_tudo_anotacoes || p.id === a.lider_direto_id || p.lider_direto_id === a.id
+    || (a.perfil === 'lider' && p.perfil === 'lider' && a.lider_direto_id && p.lider_direto_id === a.lider_direto_id)))
+    .sort((x, y) => (y.id === a.lider_direto_id) - (x.id === a.lider_direto_id) || x.nome.localeCompare(y.nome, 'pt-BR'));
+};
 function composerHtml(p, comConversa) {
   return `<div class="comp"><div class="cgrid">
     <div><label for="${p}Tipo">Tipo</label><select id="${p}Tipo">${TIPOS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
@@ -958,11 +969,12 @@ function composerHtml(p, comConversa) {
 }
 function prepComposer(p, getCtx) {
   const dest = $(p + 'Dest');
-  dest.innerHTML = recipients().map(r => `<option value="${r.id}">${esc(r.nome)}${r.id === me.lider_direto_id ? ' (liderança direta)' : ''}</option>`).join('') + '<option value="priv">Só para mim (rascunho privado)</option>';
-  const lbl = () => { $(p + 'Send').textContent = dest.value === 'priv' ? 'Salvar rascunho' : 'Enviar para ' + (NPEOPLE.get(dest.value) || {}).nome; };
+  dest.innerHTML = recipients().map(r => `<option value="${r.id}">${esc(r.nome)}${r.id === actor().lider_direto_id ? ' (liderança direta)' : ''}</option>`).join('') + '<option value="priv">Só para mim (rascunho privado)</option>';
+  const lbl = () => { $(p + 'Send').textContent = simulando() ? 'Envio desativado na prévia' : dest.value === 'priv' ? 'Salvar rascunho' : 'Enviar para ' + (NPEOPLE.get(dest.value) || {}).nome; $(p + 'Send').disabled = simulando(); };
   dest.onchange = lbl; lbl();
   $(p + 'Txt').oninput = () => msg($(p + 'Msg'), '', '');
   $(p + 'Send').onclick = async () => {
+    if (simulando()) return;
     const ctx = getCtx(), txt = $(p + 'Txt').value.trim(), priv = dest.value === 'priv', tipo = $(p + 'Tipo').value;
     if (!txt) return msg($(p + 'Msg'), 'err', 'Escreva a anotação antes de enviar.');
     let conv = ctx.conv || null;
@@ -991,10 +1003,10 @@ let drawerQuote = '';
 function renderQuote(p, t) { $(p + 'Quote').innerHTML = t ? `<span class="qchip">Trecho: ${esc(t.slice(0, 80))}${t.length > 80 ? '…' : ''}<a data-rmq="1">remover</a></span>` : ''; }
 function renderDrawerNotes(keepMsg) {
   const box = $('dNotes'); if (!box || !me || !drawerId) return;
-  const L = NOTES.filter(n => n.conversation_id === drawerId && (!n.privado || n.de_id === me.id));
+  const L = NOTES.filter(n => n.conversation_id === drawerId && (!n.privado || n.de_id === actor().id));
   const msgHtml = keepMsg && $('ndMsg') ? $('ndMsg').outerHTML : '';
   box.innerHTML = `<div class="vsecs" style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em">Anotações desta conversa (${L.length})</div>` +
-    (L.length ? L.map(n => noteItem(n, isTime(n) ? 'time' : n.de_id === me.id ? 'env' : 'rec')).join('') : '<p class="note">Ainda não há anotações aqui. Use "Anotar trecho" nas mensagens para citar uma parte da conversa.</p>') + composerHtml('nd', false);
+    (L.length ? L.map(n => noteItem(n, isTime(n) ? 'time' : n.de_id === actor().id ? 'env' : 'rec')).join('') : '<p class="note">Ainda não há anotações aqui. Use "Anotar trecho" nas mensagens para citar uma parte da conversa.</p>') + composerHtml('nd', false);
   prepComposer('nd', () => ({ conv: drawerId, quote: drawerQuote, clearQuote: () => { drawerQuote = ''; renderQuote('nd', ''); } }));
   renderQuote('nd', drawerQuote);
   if (msgHtml) { const m = $('ndMsg'); m.outerHTML = msgHtml; }
@@ -1008,6 +1020,7 @@ $('ngPessoa').onclick = () => { ngrp = 'pessoa'; renderNotes(); };
 async function noteClick(e) {
   const a = e.target.closest('[data-conv]');
   if (a) { const c = DATA.find(x => x.id === a.dataset.conv); if (c) openDrawer(c); else alert('Essa conversa não está entre as que você pode ver agora.'); return; }
+  if (simulando()) return;
   const del = e.target.closest('[data-del]');
   if (del) {
     if (!confirm('Apagar este rascunho? Isso não pode ser desfeito.')) return;
@@ -1025,7 +1038,7 @@ async function noteClick(e) {
   }
 }
 async function statusChange(e) {
-  const s = e.target.closest('[data-st]'); if (!s) return;
+  const s = e.target.closest('[data-st]'); if (!s || simulando()) return;
   const { error } = await supa.from('anotacoes').update({ status: s.value }).eq('id', s.dataset.st);
   if (!error) { const n = NOTES.find(x => x.id === s.dataset.st); if (n) n.status = s.value; renderNotes(); renderDrawerNotes(); }
 }
