@@ -75,6 +75,8 @@
   .acc input[type=checkbox]{width:18px;height:18px;accent-color:var(--good);cursor:pointer}
   .acc input:disabled{cursor:not-allowed;opacity:.4}
   .acc td small{color:var(--muted);display:block}
+  .msg.i{background:transparent;border:1px dashed var(--line);color:var(--muted);margin-right:auto}
+  .msg{white-space:pre-wrap;word-break:break-word}
   /* drawer */
   #drawer{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;z-index:10}
   #drawer.open{transform:none}
@@ -461,8 +463,31 @@ function openDrawer(c) {
       ${item('Atendimento (sem pausas de 12h+)', fmtSec(c.dur))}${item('Entre respostas (média)', fmtSec(c.gap))}
       ${c.pausas ? `<div style="grid-column:1/-1;border:1px dashed var(--line);border-radius:8px;padding:8px"><span>Adiamento estimado</span>${c.pausas} pausa(s) de 12h ou mais foram descontadas do tempo de atendimento.</div>` : ''}
     </div>
-    <p class="note" style="margin-top:16px">A transcrição da conversa ainda não está disponível nesta versão.</p>`;
+    ${sec('Mensagens')}<div id="transcr" class="note">Carregando mensagens…</div>
+    <p class="note" style="margin-top:12px">Telefones, CPF, CNPJ, CEP e e-mails foram ocultados nas mensagens.</p>`;
   $('drawer').classList.add('open');
+  loadMessages(c);
+}
+let drawerId = null;
+const hora = d => d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+function renderMessages(list, c) {
+  const box = $('transcr'); if (!box) return;
+  if (!list.length) { box.textContent = 'Nenhuma mensagem encontrada para esta conversa.'; return; }
+  box.className = '';
+  box.innerHTML = list.map(m => {
+    const cls = m.remetente === 'ATENDENTE' ? 'a' : m.remetente === 'CLIENTE' ? 'c' : 'i';
+    const quem = m.remetente === 'ATENDENTE' ? (m.nome || c.agent) : m.remetente === 'CLIENTE' ? 'Cliente' : 'IA';
+    const pre = m.tipo === 'audio_transcription' ? '[áudio transcrito] ' : m.tipo === 'attachment_interpretation' ? '[anexo] ' : '';
+    return `<div class="msg ${cls}">${esc(pre + (m.texto || ''))}<small>${esc(quem)} · ${hora(m.enviado_em ? new Date(m.enviado_em) : null)}</small></div>`;
+  }).join('');
+}
+async function loadMessages(c) {
+  drawerId = c.id;
+  const { data, error } = await supa.from('mensagens_csat').select('remetente,nome,tipo,texto,enviado_em,ordem')
+    .eq('conversation_id', c.id).order('enviado_em', { ascending: true }).order('ordem', { ascending: true });
+  if (drawerId !== c.id) return;           // outra conversa foi aberta enquanto carregava
+  if (error) { const b = $('transcr'); if (b) b.textContent = 'Não foi possível carregar as mensagens: ' + error.message; return; }
+  renderMessages(data, c);
 }
 const closeDrawer = () => $('drawer').classList.remove('open');
 $('dClose').onclick = closeDrawer;
