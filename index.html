@@ -211,10 +211,10 @@
       <div class="kpis" id="kpis"></div>
       <div class="filters">
         <div class="fgrid">
-          <div><label for="fPeriod">Período (abertura da conversa)</label>
-            <select id="fPeriod"><option value="">Todo o período</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="mes">Este mês</option><option value="mesant">Mês passado</option><option value="custom">Escolher datas…</option></select></div>
-          <div class="cust-c hidden"><label for="fFrom">De</label><input id="fFrom" type="date"></div>
-          <div class="cust-c hidden"><label for="fTo">Até</label><input id="fTo" type="date"></div>
+          <div><label for="fPeriod">Período (atalhos)</label>
+            <select id="fPeriod"><option value="">Todo o período</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="mes">Este mês</option><option value="mesant">Mês passado</option><option value="custom">Personalizado</option></select></div>
+          <div><label for="fFrom">De</label><input id="fFrom" type="date"></div>
+          <div><label for="fTo">Até</label><input id="fTo" type="date"></div>
           <div id="agentWrap"><label for="fAgent">Atendente</label><select id="fAgent"></select></div>
           <div><label for="fCsat">Nota de CSAT</label>
             <select id="fCsat"><option value="">Todas</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="low">Baixas (1 a 2)</option><option value="high">Altas (4 a 5)</option></select></div>
@@ -243,10 +243,10 @@
     <div id="tab-ana" class="hidden">
       <div class="filters">
         <div class="fgrid">
-          <div><label for="dPeriod">Período (abertura da conversa)</label>
-            <select id="dPeriod"><option value="">Todo o período</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="mes">Este mês</option><option value="mesant">Mês passado</option><option value="custom">Escolher datas…</option></select></div>
-          <div class="cust-d hidden"><label for="dFrom">De</label><input id="dFrom" type="date"></div>
-          <div class="cust-d hidden"><label for="dTo">Até</label><input id="dTo" type="date"></div>
+          <div><label for="dPeriod">Período (atalhos)</label>
+            <select id="dPeriod"><option value="">Todo o período</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="mes">Este mês</option><option value="mesant">Mês passado</option><option value="custom">Personalizado</option></select></div>
+          <div><label for="dFrom">De</label><input id="dFrom" type="date"></div>
+          <div><label for="dTo">Até</label><input id="dTo" type="date"></div>
           <div id="dAgentWrap"><label for="dAgent">Atendente</label><select id="dAgent"></select></div>
         </div>
         <div class="row"><span id="dCount"></span><button class="btn ghost" id="dClear">Limpar filtros</button></div>
@@ -258,6 +258,7 @@
         <div class="fgrid">
           <div><label for="aMetric">Métrica</label>
             <select id="aMetric">
+              <option value="">Escolha a métrica…</option>
               <option value="csat">CSAT médio</option>
               <option value="fcr">% FCR</option>
               <option value="dur">Tempo de atendimento (mediana, h)</option>
@@ -266,9 +267,9 @@
               <option value="n">Nº de conversas</option>
             </select></div>
           <div><label for="aGroup">Agrupar por</label>
-            <select id="aGroup"><option value="week">Semana</option><option value="day">Dia</option><option value="csat">Nota de CSAT</option></select></div>
+            <select id="aGroup"><option value="">Escolha o agrupamento…</option><option value="week">Semana</option><option value="day">Dia</option><option value="csat">Nota de CSAT</option></select></div>
         </div>
-        <p class="note" style="margin:10px 0 0">O gráfico usa o período e o atendente escolhidos acima.</p>
+        <p class="note" style="margin:10px 0 0">Escolha a métrica e o agrupamento para ver o gráfico. Ele usa o período e o atendente escolhidos acima.</p>
       </div>
       <div class="vgrid" id="dBuilder" style="margin-top:12px"></div>
     </div>
@@ -514,8 +515,8 @@ function render() {
   renderAnalysis();
 }
 $('more').onclick = () => { shown += PAGE; render(); };
-FILTERS.forEach(id => $(id).addEventListener('change', () => { shown = PAGE; render(); }));
-$('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); syncPeriod('fPeriod', 'cust-c'); shown = PAGE; render(); };
+FILTERS.filter(id => !/^f(Period|From|To)$/.test(id)).forEach(id => $(id).addEventListener('change', () => { shown = PAGE; render(); }));
+$('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); shown = PAGE; render(); };
 
 /* ---------- 4) CONVERSA + CSAT ---------- */
 $('rows').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) openDrawer(DATA.find(c => c.id === tr.dataset.id)); });
@@ -612,24 +613,36 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   if (t.dataset.tab === 'ana') renderDados();
 });
 /* ---------- 6) PERÍODO ---------- */
-function periodRange(selId, fromId, toId) {
-  const v = $(selId).value, now = new Date(), day = 864e5;
-  const d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dt = s => { if (!s) return null; const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
-  if (v === '7') return [new Date(d0 - 6 * day), new Date(+d0 + day)];
-  if (v === '30') return [new Date(d0 - 29 * day), new Date(+d0 + day)];
-  if (v === 'mes') return [new Date(d0.getFullYear(), d0.getMonth(), 1), new Date(+d0 + day)];
-  if (v === 'mesant') return [new Date(d0.getFullYear(), d0.getMonth() - 1, 1), new Date(d0.getFullYear(), d0.getMonth(), 1)];
-  if (v === 'custom') {
-    let a = dt($(fromId).value), b = dt($(toId).value);
-    if (a && b && a > b) [a, b] = [b, a];
-    return [a, b ? new Date(+b + day) : null];
-  }
+const pad2 = n => String(n).padStart(2, '0');
+const isoDay = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const parseDay = v => { if (!v) return null; const [y, m, d] = v.split('-').map(Number); return new Date(y, m - 1, d); };
+function presetRange(v) {
+  const now = new Date(), day = 864e5, d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (v === '7') return [new Date(d0 - 6 * day), d0];
+  if (v === '30') return [new Date(d0 - 29 * day), d0];
+  if (v === 'mes') return [new Date(d0.getFullYear(), d0.getMonth(), 1), d0];
+  if (v === 'mesant') return [new Date(d0.getFullYear(), d0.getMonth() - 1, 1), new Date(d0.getFullYear(), d0.getMonth(), 0)];
   return [null, null];
 }
-const syncPeriod = (sel, cls) => document.querySelectorAll('.' + cls).forEach(e => e.classList.toggle('hidden', $(sel).value !== 'custom'));
-$('fPeriod').addEventListener('change', () => syncPeriod('fPeriod', 'cust-c'));
-$('dPeriod').addEventListener('change', () => syncPeriod('dPeriod', 'cust-d'));
+/* período = datas De/Até (inclusive); os atalhos só preenchem as datas */
+function periodRange(selId, fromId, toId) {
+  let a = parseDay($(fromId).value), b = parseDay($(toId).value);
+  if (a && b && a > b) [a, b] = [b, a];
+  return [a, b ? new Date(+b + 864e5) : null];
+}
+function bindPeriod(selId, fromId, toId, onChange) {
+  $(selId).addEventListener('change', () => {
+    const [a, b] = presetRange($(selId).value);
+    $(fromId).value = a ? isoDay(a) : ''; $(toId).value = b ? isoDay(b) : '';
+    onChange();
+  });
+  [fromId, toId].forEach(id => $(id).addEventListener('input', () => {
+    $(selId).value = ($(fromId).value || $(toId).value) ? 'custom' : '';
+    onChange();
+  }));
+}
+bindPeriod('fPeriod', 'fFrom', 'fTo', () => { shown = PAGE; render(); });
+bindPeriod('dPeriod', 'dFrom', 'dTo', () => renderDados());
 
 /* ---------- 7) DADOS: gráficos prontos ---------- */
 const median = a => { const s = a.filter(v => v != null).sort((x, y) => x - y); if (!s.length) return null; const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
@@ -654,7 +667,7 @@ function colChart(items, o) {
   const hi = vals.indexOf(Math.max(...vals)), idxMax = items.findIndex(i => i.value === Math.max(...vals));
   let last = -1; items.forEach((it, i) => { if (it.value != null) last = i; });
   const mark = new Set([idxMax, last]);
-  const step = items.length > 10 ? 2 : 1;
+  const step = items.length > 14 ? 3 : items.length > 7 ? 2 : 1;
   const y = ticks.map(t => `<span style="bottom:${t / max * 100}%">${o.fmtTick ? o.fmtTick(t) : fmtN(t)}</span>`).join('');
   const gl = ticks.map((t, i) => `<div class="cgl${i === 0 ? ' base' : ''}" style="bottom:${t / max * 100}%"></div>`).join('');
   const slots = items.map((it, i) => {
@@ -757,6 +770,7 @@ const BUILD = {
   n: { label: 'Nº de conversas', f: g => g.length, fmt: v => String(Math.round(v)), col: 'Conversas' }
 };
 function renderBuilder(L) {
+  if (!$('aMetric').value || !$('aGroup').value) { $('dBuilder').innerHTML = ''; return; }
   const m = BUILD[$('aMetric').value], g = $('aGroup').value;
   let items;
   if (g === 'week') items = weeklySeries(L, m.f, { fmt: m.fmt });
@@ -768,8 +782,8 @@ function renderBuilder(L) {
   const por = g === 'week' ? 'semana' : g === 'day' ? 'dia (últimos 14 com dados)' : 'nota de CSAT';
   $('dBuilder').innerHTML = vcard(`${m.label} por ${por}`, 'Gráfico montado por você', colChart(items, { fmt: m.fmt, max: m.max, fmtTick: m.fmtTick }), [g === 'csat' ? 'Nota' : 'Período', m.col, 'Conversas'], items.map(i => [i.label, i.value == null ? '—' : m.fmt(i.value), i.n]));
 }
-['aMetric', 'aGroup', 'dPeriod', 'dFrom', 'dTo', 'dAgent'].forEach(id => $(id).addEventListener('change', renderDados));
-$('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent'].forEach(id => $(id).value = ''); syncPeriod('dPeriod', 'cust-d'); renderDados(); };
+['aMetric', 'aGroup', 'dAgent'].forEach(id => $(id).addEventListener('change', renderDados));
+$('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent'].forEach(id => $(id).value = ''); renderDados(); };
 const renderAnalysis = renderDados;
 
 /* dica ao passar o mouse ou focar (a tabela de cada gráfico traz os mesmos valores) */
