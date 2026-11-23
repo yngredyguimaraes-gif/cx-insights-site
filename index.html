@@ -138,8 +138,11 @@
   .nav{width:30px;height:30px;border-radius:50%;background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none}
   .nmeta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
   .nmeta .when{color:var(--muted);font-size:12px}
+  .nmeta .to{color:var(--muted);font-size:12px}
+  .nmeta .to b{color:var(--ink);font-weight:600}
   .ntxt{margin:4px 0;font-size:14px;white-space:pre-wrap;word-break:break-word}
-  .nquote{border-left:2px solid var(--line);padding:2px 10px;margin:6px 0;font-size:12px;color:var(--muted);white-space:pre-wrap}
+  .nquote{border-left:2px solid var(--line);padding:2px 10px;margin:6px 0;font-size:12px;color:var(--muted);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+  .nquote.open{display:block;-webkit-line-clamp:unset}
   .nact{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
   .nact a{color:var(--good);cursor:pointer;text-decoration:underline}
   .nact select{width:auto;padding:3px 8px;font-size:12px;border-radius:8px}
@@ -310,25 +313,6 @@
       </div>
       <div class="kpis" id="dTiles"></div>
       <div class="vgrid" id="dCharts"></div>
-      <div class="vsec">Monte o seu gráfico</div>
-      <div class="filters">
-        <div class="fgrid">
-          <div><label for="aMetric">Métrica</label>
-            <select id="aMetric">
-              <option value="">Escolha a métrica…</option>
-              <option value="csat">CSAT médio</option>
-              <option value="fcr">% FCR</option>
-              <option value="dur">Tempo de atendimento (mediana, h)</option>
-              <option value="first">1ª resposta (mediana, min)</option>
-              <option value="gap">Tempo entre respostas (mediana, min)</option>
-              <option value="n">Nº de conversas</option>
-            </select></div>
-          <div><label for="aGroup">Agrupar por</label>
-            <select id="aGroup"><option value="">Escolha o agrupamento…</option><option value="week">Semana</option><option value="day">Dia</option><option value="csat">Nota de CSAT</option></select></div>
-        </div>
-        <p class="note" style="margin:10px 0 0">Escolha a métrica e o agrupamento para ver o gráfico. Ele usa o período e o atendente escolhidos acima.</p>
-      </div>
-      <div class="vgrid" id="dBuilder" style="margin-top:12px"></div>
     </div>
 
     <!-- aba desenvolvimento -->
@@ -473,6 +457,7 @@ async function bootstrap(session) {
 
 /* ---------- 2) DADOS ---------- */
 const mapRow = r => ({
+  fcrParcial: r.fcr_parcial,
   id: r.conversation_id, date: new Date(r.aberta_em), fim: r.encerrada_em ? new Date(r.encerrada_em) : null,
   avaliado: r.avaliado_em ? new Date(r.avaliado_em) : null, canal: r.canal, motivo: r.motivo,
   agent: r.atendente_nome || '(sem nome)', csat: r.csat_nota, comment: r.csat_comentario, resolvido: r.resolvido_cliente,
@@ -558,6 +543,9 @@ document.querySelector('thead').addEventListener('click', e => {
 const fmtSec = s => s == null ? '—' : s >= 3600 ? `${Math.floor(s / 3600)}h ${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}min` : s >= 60 ? `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s` : `${Math.round(s)}s`;
 const fmtD = d => d ? d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
 const FCR_LABEL = { sim: ['Sim', 'yes'], nao: ['Não', 'no'], em_apuracao: ['Em apuração', ''], sem_classificacao: ['Sem classif.', ''] };
+/* FCR conhecido: o final, ou o "até agora" das conversas ainda dentro dos 7 dias */
+const fcrVal = c => c.fcr === 'sim' || c.fcr === 'nao' ? c.fcr : (c.fcr === 'em_apuracao' ? c.fcrParcial || null : null);
+const fcrTagC = c => c.fcr === 'em_apuracao' && c.fcrParcial ? `<span class="tag" title="Ainda dentro dos 7 dias: o cliente pode voltar até fechar a janela">${c.fcrParcial === 'sim' ? 'Sim' : 'Não'} · parcial</span>` : fcrTag(c.fcr);
 const fcrTag = v => { const [t, k] = FCR_LABEL[v] || ['—', '']; return `<span class="tag ${k}">${t}</span>`; };
 const sc = n => `<span class="score s${n}">${n}</span>`;
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
@@ -572,12 +560,12 @@ function render() {
     return (va > vb ? 1 : va < vb ? -1 : b.date - a.date) * (va === vb ? 1 : sort.dir);
   });
   document.querySelectorAll('th.sortable').forEach(th => th.dataset.dir = th.dataset.key === sort.key ? sort.dir : '');
-  const fcrOk = list.filter(c => c.fcr === 'sim' || c.fcr === 'nao');
+  const fcrOk = list.filter(c => fcrVal(c));
   const mDur = avg(nums(list, c => c.dur)), mFirst = avg(nums(list.filter(c => !c.longa), c => c.first));
   $('kpis').innerHTML = [
     ['CSAT médio', list.length ? avg(list.map(c => c.csat)).toFixed(2) : '—'],
     ['Notas 4 e 5 (satisfeitos)', list.length ? Math.round(list.filter(c => c.csat >= 4).length / list.length * 100) + '%' : '—'],
-    ['FCR (conversas apuradas)', fcrOk.length ? Math.round(fcrOk.filter(c => c.fcr === 'sim').length / fcrOk.length * 100) + '%' : '—'],
+    ['FCR (inclui parciais)', fcrOk.length ? Math.round(fcrOk.filter(c => fcrVal(c) === 'sim').length / fcrOk.length * 100) + '%' : '—'],
     ['Tempo médio de atendimento', fmtSec(mDur)],
     ['1ª resposta (média, sem esperas longas)', fmtSec(mFirst)],
     ['Conversas', list.length]
@@ -587,7 +575,7 @@ function render() {
   if (!list.length) { const ult = DATA.length ? DATA.reduce((m, c) => c.date > m ? c.date : m, DATA[0].date) : null; $('empty').textContent = 'Nenhuma conversa com esses filtros.' + (ult ? ' A conversa mais recente carregada é de ' + ult.toLocaleDateString('pt-BR') + '. Escolha "Todo o período" para ver tudo.' : ''); }
   $('rows').innerHTML = list.slice(0, shown).map(c => `<tr data-id="${esc(c.id)}">
     <td><strong>${esc(c.id)}</strong><div style="color:var(--muted);font-size:12px">${esc(c.motivo || 'sem classificação')}</div></td>
-    <td>${fmtD(c.date)}</td><td>${esc(c.agent)}</td><td>${sc(c.csat)}</td><td>${fcrTag(c.fcr)}</td>
+    <td>${fmtD(c.date)}</td><td>${esc(c.agent)}</td><td>${sc(c.csat)}</td><td>${fcrTagC(c)}</td>
     <td>${fmtSec(c.dur)}${c.pausas ? ` <span class="tag" title="${c.pausas} pausa(s) de 12h ou mais descontada(s)">adiada</span>` : ''}</td>
     <td>${fmtSec(c.gap)}</td><td>${fmtSec(c.first)}${c.longa ? ' <span class="tag" title="Espera longa: tempo real, fora da média">espera longa</span>' : ''}</td></tr>`).join('');
   const resta = list.length - shown;
@@ -619,7 +607,7 @@ function openDrawer(c) {
     </div>
     ${sec('Indicadores')}
     <div class="meta">
-      ${item('FCR (sem retorno em 7 dias)', fcrTag(c.fcr))}${item('1ª resposta', fmtSec(c.first) + (c.longa ? ' · espera longa' : ''))}
+      ${item('FCR (sem retorno em 7 dias)', fcrTagC(c))}${item('1ª resposta', fmtSec(c.first) + (c.longa ? ' · espera longa' : ''))}
       ${item('Atendimento (sem pausas de 12h+)', fmtSec(c.dur))}${item('Entre respostas (média)', fmtSec(c.gap))}
       ${c.pausas ? `<div style="grid-column:1/-1;border:1px dashed var(--line);border-radius:8px;padding:8px"><span>Adiamento estimado</span>${c.pausas} pausa(s) de 12h ou mais foram descontadas do tempo de atendimento.</div>` : ''}
     </div>
@@ -825,7 +813,7 @@ function rankItems(L, key, f, o) {
 }
 const shortName = n => { const p = String(n).trim().split(/\s+/); return p.length > 2 ? p[0] + ' ' + p[p.length - 1] : n; };
 const csatAvg = g => g.length ? g.reduce((s, c) => s + c.csat, 0) / g.length : null;
-const fcrPct = g => { const k = g.filter(c => c.fcr === 'sim' || c.fcr === 'nao'); return k.length ? k.filter(c => c.fcr === 'sim').length / k.length * 100 : null; };
+const fcrPct = g => { const k = g.filter(fcrVal); return k.length ? k.filter(c => fcrVal(c) === 'sim').length / k.length * 100 : null; };
 const EXPANDED = new Set();
 const rankCard = (title, sub, items, o) => {
   const key = o.key || title, top = o.top || 10, exp = EXPANDED.has(key), show = exp ? items : items.slice(0, top);
@@ -840,13 +828,13 @@ function renderDados() {
   const L = dadosList();
   curGran = pickGran(L); const u = GRAN[curGran].un;
   $('dCount').textContent = `${L.length} conversa(s) no período`;
-  const fcrOk = L.filter(c => c.fcr === 'sim' || c.fcr === 'nao');
+  const fcrOk = L.filter(c => fcrVal(c));
   const mDur = median(L.map(c => c.dur)), mFirst = median(L.filter(c => !c.longa).map(c => c.first));
   $('dTiles').innerHTML = [
     ['Conversas', L.length],
     ['CSAT médio', L.length ? csatAvg(L).toFixed(2) : '—'],
     ['Notas 4 e 5 (satisfeitos)', L.length ? Math.round(L.filter(c => c.csat >= 4).length / L.length * 100) + '%' : '—'],
-    ['FCR (conversas apuradas)', fcrOk.length ? Math.round(fcrPct(L)) + '%' : '—'],
+    ['FCR (inclui parciais)', fcrOk.length ? Math.round(fcrPct(L)) + '%' : '—'],
     ['Atendimento (mediana)', mDur == null ? '—' : fmtHm(mDur / 3600)],
     ['1ª resposta (mediana, sem esperas longas)', mFirst == null ? '—' : fmtMin(mFirst / 60)]
   ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
@@ -858,48 +846,25 @@ function renderDados() {
   const dist = [1, 2, 3, 4, 5].map(n => { const k = L.filter(c => c.csat === n).length; return { label: 'Nota ' + n, value: k, n: k, tip: `Nota ${n}: ${k} conversa(s) · ${L.length ? Math.round(k / L.length * 100) : 0}%` }; });
   cards.push(vcard('Como os clientes avaliaram', 'Número de conversas em cada nota de CSAT', colChart(dist, { fmt: v => String(Math.round(v)) }), ['Nota', 'Conversas', '% do total'], dist.map(d => [d.label, d.n, (L.length ? Math.round(d.n / L.length * 100) : 0) + '%'])));
 
-  cards.push(seriesCard(`FCR por ${u}`, 'Percentual resolvido sem retorno em 7 dias (só conversas já apuradas)', weeklySeries(L, fcrPct, { fmt: v => Math.round(v) + '%' }), { fmt: v => Math.round(v) + '%', fmtTick: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
+  cards.push(seriesCard(`FCR por ${u}`, 'Sem retorno em 7 dias. Conversas ainda dentro da janela contam como "até agora" e podem mudar', weeklySeries(L, fcrPct, { fmt: v => Math.round(v) + '%' }), { fmt: v => Math.round(v) + '%', fmtTick: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
   cards.push(seriesCard(`Tempo de atendimento por ${u}`, 'Mediana, sem as pausas de 12h ou mais (estimativa)', weeklySeries(L, g => { const m = median(g.map(c => c.dur)); return m == null ? null : m / 3600; }, { fmt: fmtHm }), { fmt: fmtHm, fmtTick: v => fmtN(v) + ' h', col: 'Mediana' }));
   cards.push(seriesCard(`1ª resposta por ${u}`, 'Mediana, sem as esperas longas', weeklySeries(L, g => { const m = median(g.filter(c => !c.longa).map(c => c.first)); return m == null ? null : m / 60; }, { fmt: fmtMin }), { fmt: fmtMin, fmtTick: v => fmtN(v) + ' min', col: 'Mediana' }));
 
   const porAtendente = canSeeAll() && !viewAs && !$('dAgent').value;
   if (porAtendente) {
     cards.push(rankCard('CSAT médio por atendente', 'Só quem tem 3 conversas ou mais no período', rankItems(L, c => c.agent, csatAvg, { fmt: v => v.toFixed(2), min: 3, short: true }), { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
-    cards.push(rankCard('FCR por atendente', 'Só quem tem 3 conversas apuradas ou mais no período', rankItems(L.filter(c => c.fcr === 'sim' || c.fcr === 'nao'), c => c.agent, fcrPct, { fmt: v => Math.round(v) + '%', min: 3, short: true }), { fmt: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
+    cards.push(rankCard('FCR por atendente', 'Só quem tem 3 conversas ou mais com FCR conhecido no período', rankItems(L.filter(fcrVal), c => c.agent, fcrPct, { fmt: v => Math.round(v) + '%', min: 3, short: true }), { fmt: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
   }
   cards.push(rankCard('Principais motivos', 'Conversas por motivo classificado (os 8 maiores)', rankItems(L, c => c.motivo || 'sem classificação', g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas', top: 8, key: 'motivos' }));
   cards.push(rankCard('CSAT médio por motivo', 'Do menor para o maior, para ver onde focar (só motivos com 3 conversas ou mais). Nota de 0 a 5', rankItems(L, c => c.motivo || 'sem classificação', csatAvg, { fmt: v => v.toFixed(2), min: 3, asc: true }), { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio', top: 8, key: 'csat-motivo' }));
   cards.push(rankCard('Canais', 'Conversas por canal de atendimento', rankItems(L, c => c.canal || 'sem canal', g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas', top: 6, key: 'canais' }));
-  const porFcr = [['FCR sim', L.filter(c => c.fcr === 'sim')], ['FCR não', L.filter(c => c.fcr === 'nao')]].filter(([, g]) => g.length)
+  const porFcr = [['FCR sim', L.filter(c => fcrVal(c) === 'sim')], ['FCR não', L.filter(c => fcrVal(c) === 'nao')]].filter(([, g]) => g.length)
     .map(([k, g]) => ({ label: k, value: csatAvg(g), n: g.length, tip: `${k}: CSAT médio ${csatAvg(g).toFixed(2)} · ${g.length} conversa(s)` }));
   cards.push(rankCard('A nota muda quando o cliente volta?', 'CSAT médio de quem teve FCR e de quem voltou pelo mesmo motivo', porFcr, { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
   $('dCharts').innerHTML = cards.join('');
-  renderBuilder(L);
 }
 
-/* gráfico montado pela própria pessoa */
-const BUILD = {
-  csat: { label: 'CSAT médio', f: csatAvg, fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' },
-  fcr: { label: '% FCR', f: fcrPct, fmt: v => Math.round(v) + '%', max: 100, col: '% FCR' },
-  dur: { label: 'Tempo de atendimento (mediana)', f: g => { const m = median(g.map(c => c.dur)); return m == null ? null : m / 3600; }, fmt: fmtHm, col: 'Mediana' },
-  first: { label: '1ª resposta (mediana)', f: g => { const m = median(g.filter(c => !c.longa).map(c => c.first)); return m == null ? null : m / 60; }, fmt: fmtMin, col: 'Mediana' },
-  gap: { label: 'Tempo entre respostas (mediana)', f: g => { const m = median(g.map(c => c.gap)); return m == null ? null : m / 60; }, fmt: fmtMin, col: 'Mediana' },
-  n: { label: 'Nº de conversas', f: g => g.length, fmt: v => String(Math.round(v)), col: 'Conversas' }
-};
-function renderBuilder(L) {
-  if (!$('aMetric').value || !$('aGroup').value) { $('dBuilder').innerHTML = ''; return; }
-  const m = BUILD[$('aMetric').value], g = $('aGroup').value;
-  let items;
-  if (g === 'week') items = weeklySeries(L, m.f, { fmt: m.fmt }, 'week');
-  else if (g === 'day') {
-    const map = new Map();
-    L.forEach(c => { const k = new Date(c.date.getFullYear(), c.date.getMonth(), c.date.getDate()).getTime(); (map.get(k) || map.set(k, []).get(k)).push(c); });
-    items = [...map.entries()].sort((a, b) => a[0] - b[0]).slice(-14).map(([k, grp]) => { const v = m.f(grp); return { label: ddmm(new Date(k)), value: v, n: grp.length, tip: `${ddmm(new Date(k))}: ${v == null ? 'sem dados' : m.fmt(v)} · ${grp.length} conversa(s)` }; });
-  } else items = [1, 2, 3, 4, 5].map(n => { const grp = L.filter(c => c.csat === n), v = grp.length ? m.f(grp) : null; return { label: 'Nota ' + n, value: v, n: grp.length, tip: `Nota ${n}: ${v == null ? 'sem dados' : m.fmt(v)} · ${grp.length} conversa(s)` }; });
-  const por = g === 'week' ? 'semana' : g === 'day' ? 'dia (últimos 14 com dados)' : 'nota de CSAT';
-  $('dBuilder').innerHTML = vcard(`${m.label} por ${por}`, 'Gráfico montado por você', colChart(items, { fmt: m.fmt, max: m.max, fmtTick: m.fmtTick }), [g === 'csat' ? 'Nota' : 'Período', m.col, 'Conversas'], items.map(i => [i.label, i.value == null ? '—' : m.fmt(i.value), i.n]));
-}
-['aMetric', 'aGroup', 'dAgent', 'dGran'].forEach(id => $(id).addEventListener('change', renderDados));
+['dAgent', 'dGran'].forEach(id => $(id).addEventListener('change', renderDados));
 $('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent', 'dGran'].forEach(id => $(id).value = ''); setPeriod('dPeriod', 'dFrom', 'dTo', DEFAULT_PERIOD); renderDados(); };
 const renderAnalysis = renderDados;
 
@@ -957,7 +922,9 @@ const notesOf = box => NOTES.filter(box === 'rec' ? isRec : box === 'env' ? isEn
 
 function noteItem(n, box) {
   const outro = box === 'rec' ? n.de_id : n.para_id;
-  const quem = n.privado ? '<b>Rascunho privado</b>' : box === 'time' ? `<b>${esc(pname(n.de_id))}</b> para <b>${esc(pname(n.para_id))}</b>` : `<b>${box === 'rec' ? 'de ' : 'para '}${esc(pname(outro))}</b>`;
+  const eu = id => !simulando() && id === actor().id;
+  const quem = n.privado ? '<b>Rascunho privado</b> <span class="to">só você vê</span>'
+    : `<b>${esc(eu(n.de_id) ? 'Você' : pname(n.de_id))}</b> <span class="to">enviado para <b>${esc(eu(n.para_id) ? 'você' : pname(n.para_id))}</b></span>`;
   const novo = box === 'rec' && !n.lida_em;
   const meuStatus = n.tipo === 'melhoria' && n.para_id === actor().id && !simulando();
   const status = meuStatus
@@ -965,9 +932,9 @@ function noteItem(n, box) {
     : (n.tipo === 'melhoria' && n.status ? `<span class="tp analise">${STATUS_L[n.status]}</span>` : '');
   const conv = n.conversation_id ? `<a data-conv="${esc(n.conversation_id)}">Abrir conversa …${esc(n.conversation_id.slice(-8))}</a>` : '<span>Sem conversa ligada</span>';
   const apagar = n.de_id === actor().id && !simulando() ? `<button class="lnk" data-del="${n.id}" type="button">${n.privado ? 'Apagar rascunho' : 'Excluir'}</button>` : '';
-  return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${n.privado ? avatarHtml(actor().id, actor().nome) : avatarHtml(outro, pname(outro))}</div><div style="flex:1;min-width:0">
+  return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${avatarHtml(n.de_id, pname(n.de_id))}</div><div style="flex:1;min-width:0">
     <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}</div>
-    ${n.trecho ? `<div class="nquote">${esc(n.trecho)}</div>` : ''}<div class="ntxt">${esc(n.texto)}</div>
+    ${n.trecho ? `<div class="nquote" title="Clique para ver o trecho inteiro">${esc(n.trecho)}</div>` : ''}<div class="ntxt">${esc(n.texto)}</div>
     <div class="nact">${conv}${status}${apagar}</div></div></div>`;
 }
 
@@ -1070,6 +1037,7 @@ $('nCards').onclick = e => { const b = e.target.closest('[data-t]'); if (b) { nf
 $('ngTipo').onclick = () => { ngrp = 'tipo'; renderNotes(); };
 $('ngPessoa').onclick = () => { ngrp = 'pessoa'; renderNotes(); };
 async function noteClick(e) {
+  const qt = e.target.closest('.nquote'); if (qt) { qt.classList.toggle('open'); return; }
   const a = e.target.closest('[data-conv]');
   if (a) { const c = DATA.find(x => x.id === a.dataset.conv); if (c) openDrawer(c); else alert('Essa conversa não está entre as que você pode ver agora.'); return; }
   if (simulando()) return;
