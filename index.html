@@ -169,9 +169,14 @@
   .ctag button{border:0;background:none;cursor:pointer;padding:0 0 0 2px;font-size:14px;line-height:1;color:inherit}
   .dmarks{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;background:var(--bg)}
   .dmrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .dmadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
-  .dmadd input[type=text]{flex:1;min-width:140px}
-  .dmg{display:flex;gap:6px;align-items:center;font-size:13px;margin:0}
+  .dmadd{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .dmadd input[type=text]{flex:1 1 100%}
+  .dmg{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin:0;flex:1 1 220px}
+  .dmg input{width:auto;margin:0}
+  .dmsug{margin-top:12px}
+  .dmsl{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .dmsl .ctag{cursor:pointer;font:inherit;font-size:12px}
+  .dmsl .ctag:hover{border-color:var(--ink)}
   .nact .rbtn{color:var(--ink);font-weight:600}
   .nreps{margin-top:8px;border-left:2px solid var(--line);padding-left:12px}
   .nrep{display:flex;gap:8px;padding:6px 0}
@@ -1744,16 +1749,26 @@ function renderDrawerMarks(c) {
   const box = $('dMarks'); if (!box) return;
   if (!me || simulando()) { box.classList.add('hidden'); box.innerHTML = ''; return; }
   box.classList.remove('hidden');
-  const id = c.id, fav = isFav(id), tem = tagsOf(id).length;
+  const id = c.id, fav = isFav(id), tem = tagsOf(id).length, sug = sugestoes(id);
   box.innerHTML = `<div class="dmrow"><button type="button" class="btn ghost sm" data-mk="fav" aria-pressed="${fav}">${fav ? '★ Favorita' : '☆ Favoritar'}</button>${tagChips(id, true)}${tem ? '' : '<span class="note" style="margin:0">Sem tags ainda.</span>'}</div>
-    <form class="dmadd" id="dmForm"><input type="text" id="dmTag" list="dmList" maxlength="30" autocomplete="off" placeholder="Nova tag (ex.: boa prática)" aria-label="Nome da tag"><datalist id="dmList">${allKnownTags().map(t => `<option value="${esc(t)}">`).join('')}</datalist>
-      <label class="dmg"><input type="checkbox" id="dmGlobal" ${lastGlobal ? 'checked' : ''}> Tag global</label><button class="btn sm" type="submit">Adicionar tag</button></form>
+    <form class="dmadd" id="dmForm"><input type="text" id="dmTag" maxlength="30" autocomplete="off" placeholder="Escreva uma tag nova, por exemplo: boa prática" aria-label="Nome da tag">
+      <label class="dmg"><input type="checkbox" id="dmGlobal" ${lastGlobal ? 'checked' : ''}> Tag global <span class="note" style="margin:0">(todos que veem a conversa enxergam)</span></label><button class="btn sm" type="submit">Adicionar tag</button></form>
     <div class="alert" id="dmMsg" role="status"></div>
-    <p class="note" style="margin:6px 0 0">Tag pessoal: só você vê. Tag global (verde): todos que veem esta conversa enxergam. Até 10 tags de cada tipo.</p>`;
+    ${sug.length ? `<div class="dmsug"><span class="note" style="margin:0">Ou use uma tag que já existe:</span><div class="dmsl">${sug.map(([t, g]) => `<button type="button" class="ctag${g ? ' g' : ''}" data-mk="use" data-tag="${esc(t)}" data-g="${g ? 1 : 0}" title="${g ? 'Tag global' : 'Tag pessoal'}: clique para adicionar a esta conversa">+ ${esc(t)}</button>`).join('')}</div></div>` : ''}
+    <p class="note" style="margin:8px 0 0">Verde = tag global. Sem cor = tag pessoal, só você vê. Até 10 tags de cada tipo por conversa.</p>`;
 }
-async function addTag(id) {
-  const t = normTag($('dmTag').value), g = $('dmGlobal').checked, say = (k, x) => msg($('dmMsg'), k, x);
-  lastGlobal = g;
+/* tags já existentes que ainda não estão nesta conversa (pares tag + tipo) */
+function sugestoes(id) {
+  const tem = new Set([...myTags(id).map(t => 'p' + t), ...gTags(id).map(g => 'g' + g.tag)]), out = new Map();
+  if (!simulando()) {
+    GTAGS.forEach(l => l.forEach(g => { if (!tem.has('g' + g.tag)) out.set('g' + g.tag, [g.tag, true]); }));
+    MYMARK.forEach(m => m.tags.forEach(t => { if (!tem.has('p' + t)) out.set('p' + t, [t, false]); }));
+  }
+  return [...out.values()].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'));
+}
+async function addTag(id, texto, global) {
+  const t = normTag(texto !== undefined ? texto : $('dmTag').value), g = global !== undefined ? global : $('dmGlobal').checked, say = (k, x) => msg($('dmMsg'), k, x);
+  if (texto === undefined) lastGlobal = g;
   if (!t) return say('err', 'Escreva o nome da tag.');
   if (t.length > 30) return say('err', 'Use até 30 caracteres.');
   if (g) {
@@ -1784,6 +1799,13 @@ $('dBody').addEventListener('click', e => {
   const b = e.target.closest('#dMarks [data-mk]'); if (!b) return;
   if (b.dataset.mk === 'fav') toggleFav(drawerId);
   else if (b.dataset.mk === 'rm') removeTag(drawerId, b.dataset.tag, b.dataset.g === '1');
+  else if (b.dataset.mk === 'use') addTag(drawerId, b.dataset.tag, b.dataset.g === '1');
+});
+/* ao digitar, as tags existentes são filtradas */
+$('dBody').addEventListener('input', e => {
+  if (e.target.id !== 'dmTag') return;
+  const q = normTag(e.target.value);
+  document.querySelectorAll('#dMarks [data-mk=use]').forEach(b => { b.classList.toggle('hidden', !!q && !b.dataset.tag.includes(q)); });
 });
 
 /* sessão já existente (recarregar a página) */
