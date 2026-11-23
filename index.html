@@ -161,6 +161,17 @@
   .kmv button{font-size:12px;padding:3px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;color:inherit}
   .kmv button:hover{background:rgba(35,36,42,.06)}
   .kwip{font-size:12px;color:#7a5600;padding:0 4px 8px}
+  .star{background:none;border:0;cursor:pointer;font-size:17px;line-height:1;padding:0 4px;color:var(--muted);vertical-align:-1px}
+  .star.on,.mk.fav{color:#a87400}
+  .star.on{color:#d99a00}
+  .ctag{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:var(--card)}
+  .ctag.g{background:rgba(75,209,132,.16);border-color:transparent;color:#17683a;font-weight:600}
+  .ctag button{border:0;background:none;cursor:pointer;padding:0 0 0 2px;font-size:14px;line-height:1;color:inherit}
+  .dmarks{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;background:var(--bg)}
+  .dmrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .dmadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .dmadd input[type=text]{flex:1;min-width:140px}
+  .dmg{display:flex;gap:6px;align-items:center;font-size:13px;margin:0}
   .nact .rbtn{color:var(--ink);font-weight:600}
   .nreps{margin-top:8px;border-left:2px solid var(--line);padding-left:12px}
   .nrep{display:flex;gap:8px;padding:6px 0}
@@ -366,6 +377,10 @@
             <select id="fFcr"><option value="">Todos</option><option value="sim">Sim</option><option value="nao">Não</option><option value="em_apuracao">Em apuração</option><option value="sem_classificacao">Sem classificação</option></select></div>
           <div><label for="fAdi">Adiamento (pausa de 12h+)</label>
             <select id="fAdi"><option value="">Todas</option><option value="1">Com pausa descontada</option><option value="0">Sem pausa descontada</option></select></div>
+          <div><label for="fFav">Favoritas</label>
+            <select id="fFav"><option value="">Todas</option><option value="1">Só as favoritas</option></select></div>
+          <div><label for="fTag">Tag</label>
+            <select id="fTag"><option value="">Todas</option></select></div>
         </div>
         <div class="row"><span id="count"></span><button class="btn ghost" id="clear">Limpar filtros</button></div>
       </div>
@@ -520,7 +535,7 @@ supa.auth.onAuthStateChange((event, session) => {
   if (session) setTimeout(() => bootstrap(session), 0); else showLogin();
 });
 function showLogin() {
-  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
+  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); MYMARK = new Map(); GTAGS = new Map(); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
   $('app').classList.add('hidden'); $('login').classList.remove('hidden');
 }
 async function bootstrap(session) {
@@ -580,7 +595,7 @@ async function startApp(rows) {
   applyView();
   loadNotes();
   loadTeamWeekly();
-  loadReviews();
+  loadReviews(); loadMarks();
   if (me.perfil === 'lider') loadPeople();
 }
 function applyView() {
@@ -593,7 +608,7 @@ function applyView() {
   if (NPEOPLE) renderNotes();
   FILTERS.forEach(id => { $(id).value = ''; }); $('dAgent').value = '';
   resetPeriods();
-  shown = PAGE; closeDrawer(); setupFilters(); render();
+  shown = PAGE; closeDrawer(); setupFilters(); fillTagFilter(); render();
   document.querySelector('.tab[data-tab=sem]').textContent = seesAllNow() ? 'Resumo da semana' : 'Minha semana';
   swInit(); renderSemana();
 }
@@ -607,9 +622,9 @@ function setupFilters() {
 }
 
 /* ---------- 3) FILTROS E ORDENAÇÃO ---------- */
-const FILTERS = ['fPeriod', 'fFrom', 'fTo', 'fAgent', 'fCsat', 'fFcr', 'fAdi'];
+const FILTERS = ['fPeriod', 'fFrom', 'fTo', 'fAgent', 'fCsat', 'fFcr', 'fAdi', 'fFav', 'fTag'];
 function filtered() {
-  const f = { agent: $('fAgent').value, csat: $('fCsat').value, fcr: $('fFcr').value, adi: $('fAdi').value };
+  const f = { agent: $('fAgent').value, csat: $('fCsat').value, fcr: $('fFcr').value, adi: $('fAdi').value, fav: $('fFav').value, tag: $('fTag').value };
   const [pa, pb] = periodRange('fPeriod', 'fFrom', 'fTo');
   return scope().filter(c => {
     if (pa && c.date < pa) return false;
@@ -620,6 +635,8 @@ function filtered() {
     if (/^[1-5]$/.test(f.csat) && c.csat !== +f.csat) return false;
     if (f.fcr && c.fcr !== f.fcr) return false;
     if (f.adi !== '' && (c.pausas > 0) !== (f.adi === '1')) return false;
+    if (f.fav && !isFav(c.id)) return false;
+    if (f.tag && !tagsOf(c.id).includes(f.tag)) return false;
     return true;
   });
 }
@@ -668,7 +685,7 @@ function render() {
   $('empty').classList.toggle('hidden', list.length > 0);
   if (!list.length) { const ult = DATA.length ? DATA.reduce((m, c) => c.date > m ? c.date : m, DATA[0].date) : null; $('empty').textContent = 'Nenhuma conversa com esses filtros.' + (ult ? ' A conversa mais recente carregada é de ' + ult.toLocaleDateString('pt-BR') + '. Escolha "Todo o período" para ver tudo.' : ''); }
   $('rows').innerHTML = list.slice(0, shown).map(c => `<tr data-id="${esc(c.id)}">
-    <td><strong>${esc(c.id)}</strong><div style="color:var(--muted);font-size:12px">${esc(c.motivo || 'sem classificação')}</div>${marks(c) ? `<div class="mkrow">${marks(c)}</div>` : ''}</td>
+    <td><strong>${esc(c.id)}</strong>${simulando() ? '' : ` <button class="star${isFav(c.id) ? ' on' : ''}" type="button" data-fav="${esc(c.id)}" aria-label="${isFav(c.id) ? 'Remover dos favoritos' : 'Favoritar'}" title="${isFav(c.id) ? 'Remover dos favoritos' : 'Favoritar'}">${isFav(c.id) ? '★' : '☆'}</button>`}<div style="color:var(--muted);font-size:12px">${esc(c.motivo || 'sem classificação')}</div>${rowMarks(c) ? `<div class="mkrow">${rowMarks(c)}</div>` : ''}</td>
     <td>${fmtD(c.date)}</td><td>${esc(c.agent)}</td><td>${sc(c.csat)}</td><td>${fcrTagC(c)}</td>
     <td>${fmtSec(c.dur)}${c.pausas ? ` <span class="tag" title="${c.pausas} pausa(s) de 12h ou mais descontada(s)">adiada</span>` : ''}</td>
     <td>${fmtSec(c.gap)}</td><td>${fmtSec(c.first)}${c.longa ? ' <span class="tag" title="Espera longa: tempo real, fora da média">espera longa</span>' : ''}</td></tr>`).join('');
@@ -682,7 +699,7 @@ FILTERS.filter(id => !/^f(Period|From|To)$/.test(id)).forEach(id => $(id).addEve
 $('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); setPeriod('fPeriod', 'fFrom', 'fTo', DEFAULT_PERIOD); shown = PAGE; render(); };
 
 /* ---------- 4) CONVERSA + CSAT ---------- */
-$('rows').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) openDrawer(DATA.find(c => c.id === tr.dataset.id)); });
+$('rows').addEventListener('click', e => { const f = e.target.closest('[data-fav]'); if (f) { toggleFav(f.dataset.fav); return; } const tr = e.target.closest('tr'); if (tr) openDrawer(DATA.find(c => c.id === tr.dataset.id)); });
 function openDrawer(c, fila) {
   if (!c) return;
   reviewQueue = fila || [];
@@ -691,6 +708,7 @@ function openDrawer(c, fila) {
   const item = (l, v) => `<div><span>${l}</span>${v}</div>`;
   const sec = t => `<div style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.04em">${t}</div>`;
   $('dBody').innerHTML = `
+    <div id="dMarks" class="dmarks hidden"></div>
     <div class="csat-box"><span style="font-size:12px;color:var(--muted)">Avaliação CSAT</span>
       <div style="margin-top:6px">${sc(c.csat)} <span style="margin-left:8px">${c.comment ? esc(c.comment) : 'Sem comentário.'}</span></div>
       <div style="font-size:12px;color:var(--muted);margin-top:6px">Avaliada em ${fmtD(c.avaliado)} · cliente disse que foi resolvido: ${c.resolvido === 'sim' ? 'sim' : c.resolvido === 'nao' ? 'não' : '—'}</div></div>
@@ -712,7 +730,7 @@ function openDrawer(c, fila) {
   $('drawer').classList.add('open');
   drawerQuote = '';
   loadMessages(c);
-  drawerId = c.id; renderDrawerNotes();
+  drawerId = c.id; renderDrawerNotes(); renderDrawerMarks(c);
   renderDrawerNav(c); $('dBody').scrollTop = 0;
 }
 let drawerId = null;
@@ -1665,6 +1683,108 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft' && reviewQueue.length) { const i = reviewQueue.indexOf(drawerId); if (i > 0) irParaConversa(reviewQueue[i - 1]); }
 });
 $('tab-sem').addEventListener('change', e => { if (e.target.id === 'swHideRev') { swHideRev = e.target.checked; renderSemana(); } });
+
+/* ---------- 12) FAVORITOS E TAGS DAS CONVERSAS ---------- */
+/* pessoais: só quem criou vê. globais: todo mundo que enxerga a conversa vê. */
+let MYMARK = new Map(), GTAGS = new Map(), lastGlobal = false;
+const normTag = t => String(t || '').trim().replace(/\s+/g, ' ').toLowerCase();
+const myM = id => simulando() ? null : MYMARK.get(id) || null;
+const isFav = id => !!(myM(id) && myM(id).favorito);
+const myTags = id => (myM(id) || {}).tags || [];
+const gTags = id => simulando() ? [] : (GTAGS.get(id) || []);
+const tagsOf = id => [...new Set([...myTags(id), ...gTags(id).map(g => g.tag)])];
+const allKnownTags = () => { const s = new Set(); if (!simulando()) { MYMARK.forEach(m => m.tags.forEach(t => s.add(t))); GTAGS.forEach(l => l.forEach(g => s.add(g.tag))); } return [...s].sort((a, b) => a.localeCompare(b, 'pt-BR')); };
+function tagChips(id, editavel) {
+  const x = (t, g) => editavel ? `<button type="button" data-mk="rm" data-tag="${esc(t)}" data-g="${g ? 1 : 0}" aria-label="Remover a tag ${esc(t)}" title="Remover">×</button>` : '';
+  return gTags(id).map(g => `<span class="ctag g" title="Tag global, criada por ${esc(pname(g.criado_por))}. Todos que veem esta conversa a enxergam.">${esc(g.tag)}${editavel && me && (g.criado_por === me.id || me.perfil === 'lider') ? x(g.tag, true) : ''}</span>`).join(' ') + ' ' +
+    myTags(id).map(t => `<span class="ctag" title="Tag pessoal: só você vê">${esc(t)}${x(t, false)}</span>`).join(' ');
+}
+const rowMarks = c => [tagChips(c.id, false).trim(), marks(c)].filter(Boolean).join(' ');
+
+async function pageAll(table, cols) {
+  let all = [], from = 0;
+  for (;;) {
+    const r = await supa.from(table).select(cols).range(from, from + 999);
+    if (r.error) return null;
+    all = all.concat(r.data);
+    if (r.data.length < 1000) break;
+    from += 1000;
+  }
+  return all;
+}
+async function loadMarks() {
+  if (!me) return;
+  const [a, g] = await Promise.all([pageAll('marcacoes_conversa', 'conversation_id,favorito,tags'), pageAll('tags_conversa_globais', 'conversation_id,tag,criado_por,criado_em')]);
+  if (a) MYMARK = new Map(a.map(x => [x.conversation_id, { favorito: x.favorito, tags: x.tags || [] }]));
+  if (g) { GTAGS = new Map(); g.forEach(x => (GTAGS.get(x.conversation_id) || GTAGS.set(x.conversation_id, []).get(x.conversation_id)).push(x)); }
+  refreshMarks();
+}
+function fillTagFilter() {
+  const cur = $('fTag').value;
+  $('fTag').innerHTML = '<option value="">Todas</option>' + allKnownTags().map(t => `<option ${t === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
+}
+function refreshMarks() {
+  fillTagFilter(); render();
+  const c = DATA.find(x => x.id === drawerId); if (c && $('drawer').classList.contains('open')) renderDrawerMarks(c);
+}
+async function saveMine(id, fav, tags) {
+  if (simulando()) return false;
+  if (!fav && !tags.length) {
+    const { error } = await supa.from('marcacoes_conversa').delete().eq('pessoa_id', me.id).eq('conversation_id', id);
+    if (error) return false; MYMARK.delete(id); return true;
+  }
+  const { error } = await supa.from('marcacoes_conversa').upsert({ pessoa_id: me.id, conversation_id: id, favorito: fav, tags }, { onConflict: 'pessoa_id,conversation_id' });
+  if (error) return false; MYMARK.set(id, { favorito: fav, tags }); return true;
+}
+async function toggleFav(id) {
+  if (!await saveMine(id, !isFav(id), myTags(id))) { alert('Não foi possível atualizar o favorito.'); return; }
+  refreshMarks();
+}
+function renderDrawerMarks(c) {
+  const box = $('dMarks'); if (!box) return;
+  if (!me || simulando()) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.classList.remove('hidden');
+  const id = c.id, fav = isFav(id), tem = tagsOf(id).length;
+  box.innerHTML = `<div class="dmrow"><button type="button" class="btn ghost sm" data-mk="fav" aria-pressed="${fav}">${fav ? '★ Favorita' : '☆ Favoritar'}</button>${tagChips(id, true)}${tem ? '' : '<span class="note" style="margin:0">Sem tags ainda.</span>'}</div>
+    <form class="dmadd" id="dmForm"><input type="text" id="dmTag" list="dmList" maxlength="30" autocomplete="off" placeholder="Nova tag (ex.: boa prática)" aria-label="Nome da tag"><datalist id="dmList">${allKnownTags().map(t => `<option value="${esc(t)}">`).join('')}</datalist>
+      <label class="dmg"><input type="checkbox" id="dmGlobal" ${lastGlobal ? 'checked' : ''}> Tag global</label><button class="btn sm" type="submit">Adicionar tag</button></form>
+    <div class="alert" id="dmMsg" role="status"></div>
+    <p class="note" style="margin:6px 0 0">Tag pessoal: só você vê. Tag global (verde): todos que veem esta conversa enxergam. Até 10 tags de cada tipo.</p>`;
+}
+async function addTag(id) {
+  const t = normTag($('dmTag').value), g = $('dmGlobal').checked, say = (k, x) => msg($('dmMsg'), k, x);
+  lastGlobal = g;
+  if (!t) return say('err', 'Escreva o nome da tag.');
+  if (t.length > 30) return say('err', 'Use até 30 caracteres.');
+  if (g) {
+    if (gTags(id).some(x => x.tag === t)) return say('err', 'Essa tag global já está nesta conversa.');
+    if (gTags(id).length >= 10) return say('err', 'Já são 10 tags globais nesta conversa.');
+    const { data, error } = await supa.from('tags_conversa_globais').insert({ conversation_id: id, tag: t, criado_por: me.id }).select().single();
+    if (error) return say('err', 'Não foi possível adicionar a tag. ' + error.message);
+    (GTAGS.get(id) || GTAGS.set(id, []).get(id)).push(data);
+  } else {
+    const cur = myTags(id);
+    if (cur.includes(t)) return say('err', 'Você já usa essa tag aqui.');
+    if (cur.length >= 10) return say('err', 'Já são 10 tags pessoais nesta conversa.');
+    if (!await saveMine(id, isFav(id), [...cur, t])) return say('err', 'Não foi possível adicionar a tag.');
+  }
+  refreshMarks(); const n = $('dmTag'); if (n) n.focus();
+}
+async function removeTag(id, t, g) {
+  if (g) {
+    if (!confirm(`Remover a tag global "${t}"? Ela some para todos que veem esta conversa.`)) return;
+    const { data, error } = await supa.from('tags_conversa_globais').delete().eq('conversation_id', id).eq('tag', t).select('tag');
+    if (error || !data || !data.length) { alert('Não foi possível remover a tag.'); return; }
+    GTAGS.set(id, (GTAGS.get(id) || []).filter(x => x.tag !== t));
+  } else if (!await saveMine(id, isFav(id), myTags(id).filter(x => x !== t))) { alert('Não foi possível remover a tag.'); return; }
+  refreshMarks();
+}
+$('dBody').addEventListener('submit', e => { if (e.target.closest('#dMarks')) { e.preventDefault(); addTag(drawerId); } });
+$('dBody').addEventListener('click', e => {
+  const b = e.target.closest('#dMarks [data-mk]'); if (!b) return;
+  if (b.dataset.mk === 'fav') toggleFav(drawerId);
+  else if (b.dataset.mk === 'rm') removeTag(drawerId, b.dataset.tag, b.dataset.g === '1');
+});
 
 /* sessão já existente (recarregar a página) */
 supa.auth.getSession().then(({ data }) => { if (!data.session) showLogin(); });
