@@ -298,6 +298,7 @@
           <div><label for="dFrom">De</label><input id="dFrom" type="date"></div>
           <div><label for="dTo">Até</label><input id="dTo" type="date"></div>
           <div id="dAgentWrap"><label for="dAgent">Atendente</label><select id="dAgent"></select></div>
+          <div><label for="dGran">Ver evolução por</label><select id="dGran"><option value="">Automático</option><option value="day">Dia</option><option value="week">Semana</option><option value="month">Mês</option></select></div>
         </div>
         <div class="row"><span id="dCount"></span><button class="btn ghost" id="dClear">Limpar filtros</button></div>
       </div>
@@ -752,7 +753,7 @@ function colChart(items, o) {
   const hi = vals.indexOf(Math.max(...vals)), idxMax = items.findIndex(i => i.value === Math.max(...vals));
   let last = -1; items.forEach((it, i) => { if (it.value != null) last = i; });
   const mark = new Set([idxMax, last]);
-  const step = items.length > 14 ? 3 : items.length > 7 ? 2 : 1;
+  const step = Math.max(1, Math.ceil(items.length / 8));
   const y = ticks.map(t => `<span style="bottom:${t / max * 100}%">${o.fmtTick ? o.fmtTick(t) : fmtN(t)}</span>`).join('');
   const gl = ticks.map((t, i) => `<div class="cgl${i === 0 ? ' base' : ''}" style="bottom:${t / max * 100}%"></div>`).join('');
   const slots = items.map((it, i) => {
@@ -780,18 +781,34 @@ function vcard(title, sub, body, head, rows) {
   return `<section class="vcard"><h3>${esc(title)}</h3><div class="sub">${esc(sub)}</div>${body}${tab}</section>`;
 }
 
-function weeklySeries(L, f, o) {
+const GRAN = { day: { un: 'dia', head: 'Dia' }, week: { un: 'semana', head: 'Semana de' }, month: { un: 'mês', head: 'Mês' } };
+let curGran = 'week';
+const monthLbl = d => d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '');
+const bucketStart = (d, g) => g === 'day' ? new Date(d.getFullYear(), d.getMonth(), d.getDate()) : g === 'month' ? new Date(d.getFullYear(), d.getMonth(), 1) : weekStart(d);
+const nextBucket = (d, g) => g === 'day' ? new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1) : g === 'month' ? new Date(d.getFullYear(), d.getMonth() + 1, 1) : new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7);
+const bucketLbl = (d, g) => g === 'month' ? monthLbl(d) : ddmm(d);
+const bucketTip = (d, g) => g === 'day' ? 'Dia ' + d.toLocaleDateString('pt-BR') : g === 'month' ? 'Mês de ' + monthLbl(d) : 'Semana de ' + ddmm(d);
+/* automático: até 31 dias = por dia; até 6 meses = por semana; acima disso = por mês */
+function pickGran(L) {
+  const v = $('dGran').value; if (v) return v;
+  let [a, b] = periodRange('dPeriod', 'dFrom', 'dTo');
+  if (!a && L.length) a = new Date(Math.min(...L.map(c => +c.date)));
+  if (!b && L.length) b = new Date(Math.max(...L.map(c => +c.date)));
+  const dias = a && b ? (b - a) / 864e5 : 0;
+  return dias <= 31 ? 'day' : dias <= 180 ? 'week' : 'month';
+}
+function weeklySeries(L, f, o, g = curGran) {
   if (!L.length) return [];
   const map = new Map();
-  L.forEach(c => { const k = +weekStart(c.date); (map.get(k) || map.set(k, []).get(k)).push(c); });
+  L.forEach(c => { const k = +bucketStart(c.date, g); (map.get(k) || map.set(k, []).get(k)).push(c); });
   const keys = [...map.keys()].sort((a, b) => a - b), out = [];
-  for (let t = keys[0]; t <= keys[keys.length - 1]; t = +new Date(new Date(t).getFullYear(), new Date(t).getMonth(), new Date(t).getDate() + 7)) {
-    const grp = map.get(t) || [], v = grp.length ? f(grp) : null, d = new Date(t);
-    out.push({ label: ddmm(d), value: v, n: grp.length, tip: `Semana de ${ddmm(d)}: ${v == null ? 'sem dados' : o.fmt(v)} · ${grp.length} conversa(s)` });
+  for (let d = new Date(keys[0]); +d <= keys[keys.length - 1]; d = nextBucket(d, g)) {
+    const grp = map.get(+d) || [], v = grp.length ? f(grp) : null;
+    out.push({ label: bucketLbl(d, g), value: v, n: grp.length, tip: `${bucketTip(d, g)}: ${v == null ? 'sem dados' : o.fmt(v)} · ${grp.length} conversa(s)` });
   }
   return out;
 }
-const seriesCard = (title, sub, items, o) => vcard(title, sub, colChart(items, o), ['Semana de', o.col, 'Conversas'], items.map(i => [i.label, i.value == null ? '—' : o.fmt(i.value), i.n]));
+const seriesCard = (title, sub, items, o) => vcard(title, sub, colChart(items, o), [GRAN[curGran].head, o.col, 'Conversas'], items.map(i => [i.label, i.value == null ? '—' : o.fmt(i.value), i.n]));
 
 function rankItems(L, key, f, o) {
   const m = new Map();
@@ -808,6 +825,7 @@ const rankCard = (title, sub, items, o) => vcard(title, sub, rowChart(items, o),
 function renderDados() {
   if (!me) return;
   const L = dadosList();
+  curGran = pickGran(L); const u = GRAN[curGran].un;
   $('dCount').textContent = `${L.length} conversa(s) no período`;
   const fcrOk = L.filter(c => c.fcr === 'sim' || c.fcr === 'nao');
   const mDur = median(L.map(c => c.dur)), mFirst = median(L.filter(c => !c.longa).map(c => c.first));
@@ -821,15 +839,15 @@ function renderDados() {
   ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
 
   const cards = [];
-  cards.push(seriesCard('CSAT médio por semana', 'Nota de 0 a 5, pela semana de abertura da conversa', weeklySeries(L, csatAvg, { fmt: v => v.toFixed(2) }), { fmt: v => v.toFixed(2), fmtTick: v => fmtN(v), max: 5, col: 'CSAT médio' }));
-  cards.push(seriesCard('Conversas avaliadas por semana', 'Quantas conversas com CSAT foram abertas em cada semana', weeklySeries(L, g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
+  cards.push(seriesCard(`CSAT médio por ${u}`, `Nota de 0 a 5, agrupada por ${u} de abertura da conversa`, weeklySeries(L, csatAvg, { fmt: v => v.toFixed(2) }), { fmt: v => v.toFixed(2), fmtTick: v => fmtN(v), max: 5, col: 'CSAT médio' }));
+  cards.push(seriesCard(`Conversas avaliadas por ${u}`, `Quantas conversas com CSAT foram abertas em cada ${u}`, weeklySeries(L, g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
 
   const dist = [1, 2, 3, 4, 5].map(n => { const k = L.filter(c => c.csat === n).length; return { label: 'Nota ' + n, value: k, n: k, tip: `Nota ${n}: ${k} conversa(s) · ${L.length ? Math.round(k / L.length * 100) : 0}%` }; });
   cards.push(vcard('Como os clientes avaliaram', 'Número de conversas em cada nota de CSAT', colChart(dist, { fmt: v => String(Math.round(v)) }), ['Nota', 'Conversas', '% do total'], dist.map(d => [d.label, d.n, (L.length ? Math.round(d.n / L.length * 100) : 0) + '%'])));
 
-  cards.push(seriesCard('FCR por semana', 'Percentual resolvido sem retorno em 7 dias (só conversas já apuradas)', weeklySeries(L, fcrPct, { fmt: v => Math.round(v) + '%' }), { fmt: v => Math.round(v) + '%', fmtTick: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
-  cards.push(seriesCard('Tempo de atendimento por semana', 'Mediana, sem as pausas de 12h ou mais (estimativa)', weeklySeries(L, g => { const m = median(g.map(c => c.dur)); return m == null ? null : m / 3600; }, { fmt: fmtHm }), { fmt: fmtHm, fmtTick: v => fmtN(v) + ' h', col: 'Mediana' }));
-  cards.push(seriesCard('1ª resposta por semana', 'Mediana, sem as esperas longas', weeklySeries(L, g => { const m = median(g.filter(c => !c.longa).map(c => c.first)); return m == null ? null : m / 60; }, { fmt: fmtMin }), { fmt: fmtMin, fmtTick: v => fmtN(v) + ' min', col: 'Mediana' }));
+  cards.push(seriesCard(`FCR por ${u}`, 'Percentual resolvido sem retorno em 7 dias (só conversas já apuradas)', weeklySeries(L, fcrPct, { fmt: v => Math.round(v) + '%' }), { fmt: v => Math.round(v) + '%', fmtTick: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
+  cards.push(seriesCard(`Tempo de atendimento por ${u}`, 'Mediana, sem as pausas de 12h ou mais (estimativa)', weeklySeries(L, g => { const m = median(g.map(c => c.dur)); return m == null ? null : m / 3600; }, { fmt: fmtHm }), { fmt: fmtHm, fmtTick: v => fmtN(v) + ' h', col: 'Mediana' }));
+  cards.push(seriesCard(`1ª resposta por ${u}`, 'Mediana, sem as esperas longas', weeklySeries(L, g => { const m = median(g.filter(c => !c.longa).map(c => c.first)); return m == null ? null : m / 60; }, { fmt: fmtMin }), { fmt: fmtMin, fmtTick: v => fmtN(v) + ' min', col: 'Mediana' }));
 
   const porAtendente = canSeeAll() && !viewAs && !$('dAgent').value;
   if (porAtendente) {
@@ -858,7 +876,7 @@ function renderBuilder(L) {
   if (!$('aMetric').value || !$('aGroup').value) { $('dBuilder').innerHTML = ''; return; }
   const m = BUILD[$('aMetric').value], g = $('aGroup').value;
   let items;
-  if (g === 'week') items = weeklySeries(L, m.f, { fmt: m.fmt });
+  if (g === 'week') items = weeklySeries(L, m.f, { fmt: m.fmt }, 'week');
   else if (g === 'day') {
     const map = new Map();
     L.forEach(c => { const k = new Date(c.date.getFullYear(), c.date.getMonth(), c.date.getDate()).getTime(); (map.get(k) || map.set(k, []).get(k)).push(c); });
@@ -867,8 +885,8 @@ function renderBuilder(L) {
   const por = g === 'week' ? 'semana' : g === 'day' ? 'dia (últimos 14 com dados)' : 'nota de CSAT';
   $('dBuilder').innerHTML = vcard(`${m.label} por ${por}`, 'Gráfico montado por você', colChart(items, { fmt: m.fmt, max: m.max, fmtTick: m.fmtTick }), [g === 'csat' ? 'Nota' : 'Período', m.col, 'Conversas'], items.map(i => [i.label, i.value == null ? '—' : m.fmt(i.value), i.n]));
 }
-['aMetric', 'aGroup', 'dAgent'].forEach(id => $(id).addEventListener('change', renderDados));
-$('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent'].forEach(id => $(id).value = ''); setPeriod('dPeriod', 'dFrom', 'dTo', DEFAULT_PERIOD); renderDados(); };
+['aMetric', 'aGroup', 'dAgent', 'dGran'].forEach(id => $(id).addEventListener('change', renderDados));
+$('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent', 'dGran'].forEach(id => $(id).value = ''); setPeriod('dPeriod', 'dFrom', 'dTo', DEFAULT_PERIOD); renderDados(); };
 const renderAnalysis = renderDados;
 
 /* dica ao passar o mouse ou focar (a tabela de cada gráfico traz os mesmos valores) */
