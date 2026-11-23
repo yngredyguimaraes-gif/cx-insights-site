@@ -173,14 +173,21 @@
   .dmadd input[type=text]{flex:1 1 100%}
   .dmg{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin:0;flex:1 1 220px}
   .dmg input{width:auto;margin:0}
-  .tfbox{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
-  .ctag.tf{padding:0;gap:0;overflow:hidden}
-  .ctag.tf button{font:inherit;font-size:12px;cursor:pointer;color:inherit;padding:4px 10px;border:0;background:none;line-height:1.2}
-  .ctag.tf .tfx{padding:4px 8px 4px 2px;font-size:14px;opacity:.7}
-  .ctag.tf .tfx:hover{opacity:1}
-  .ctag.tf .tfn{opacity:.65;font-weight:400;margin-left:2px}
-  .ctag.tf.on{background:var(--dark);border-color:var(--dark);color:#fff}
-  .ctag.tf.g.on{background:#17683a;border-color:#17683a;color:#fff}
+  .msel{position:relative}
+  .msel::after{content:"▾";position:absolute;right:13px;bottom:11px;pointer-events:none;color:var(--muted);font-size:13px}
+  .msbtn{width:100%;text-align:left;padding:10px 30px 10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:inherit;font:inherit;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .msbtn:focus-visible{outline:2px solid var(--brand)}
+  .mspanel{position:absolute;z-index:30;left:0;top:100%;margin-top:4px;min-width:max(100%,260px);width:max-content;max-width:min(340px,90vw);background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.18);max-height:300px;overflow:auto;padding:6px}
+  .msrow{display:flex;align-items:center;gap:6px;padding:2px 6px;border-radius:8px}
+  .msrow:hover{background:rgba(35,36,42,.05)}
+  .msrow label{display:flex;flex:1;align-items:center;gap:8px;margin:0;padding:6px 0;font-size:14px;color:var(--ink);cursor:pointer}
+  .msrow input{width:auto;margin:0}
+  .msrow .tfn{color:var(--muted);font-size:12px;margin-left:auto;padding-left:10px}
+  .msrow .tfx{border:0;background:none;cursor:pointer;color:var(--muted);font-size:17px;line-height:1;padding:2px 4px;border-radius:6px}
+  .msrow .tfx:hover{color:var(--bad);background:rgba(229,72,77,.1)}
+  .msfoot{border-top:1px solid var(--line);margin-top:4px;padding:6px 8px 2px;font-size:12px;color:var(--muted)}
+  .msfoot button{background:none;border:0;text-decoration:underline;cursor:pointer;color:inherit;font:inherit;padding:0}
+  .msg-pill{font-size:11px;padding:0 7px;border-radius:999px;background:rgba(75,209,132,.18);color:#17683a;font-weight:600}
   .dmsug{margin-top:12px}
   .dmsl{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
   .dmsl .ctag{cursor:pointer;font:inherit;font-size:12px}
@@ -392,7 +399,7 @@
             <select id="fAdi"><option value="">Todas</option><option value="1">Com pausa descontada</option><option value="0">Sem pausa descontada</option></select></div>
           <div><label for="fFav">Favoritas</label>
             <select id="fFav"><option value="">Todas</option><option value="1">Só as favoritas</option></select></div>
-          <div class="tfwrap" id="tfWrap" style="grid-column:1/-1"><label id="tfLabel">Tags <span class="note" style="margin:0">(clique para filtrar; pode marcar várias)</span></label><div class="tfbox" id="fTagBox" role="group" aria-labelledby="tfLabel"></div></div>
+          <div class="msel" id="tfWrap"><label for="tfBtn">Tags (pode marcar várias)</label><button type="button" id="tfBtn" class="msbtn" aria-haspopup="true" aria-expanded="false">Todas</button><div class="mspanel hidden" id="fTagBox" role="group" aria-label="Tags"></div></div>
         </div>
         <div class="row"><span id="count"></span><button class="btn ghost" id="clear">Limpar filtros</button></div>
       </div>
@@ -1745,11 +1752,18 @@ function fillTagFilter() {
   const all = allKnownTags();
   [...selTags].forEach(t => { if (!all.includes(t)) selTags.delete(t); });
   $('tfWrap').classList.toggle('hidden', !all.length);
-  box.innerHTML = all.map(t => {
-    const i = tagInfo(t), on = selTags.has(t);
-    return `<span class="ctag tf${i.global ? ' g' : ''}${on ? ' on' : ''}"><button type="button" class="tfb" data-tf="${esc(t)}" aria-pressed="${on}" title="${i.global ? 'Tag global' : 'Tag pessoal'}: ${i.n} conversa(s)">${esc(t)} <span class="tfn">${i.n}</span></button>${i.apagavel ? `<button type="button" class="tfx" data-tfdel="${esc(t)}" aria-label="Apagar a tag ${esc(t)}" title="Apagar esta tag (só as que você criou)">×</button>` : ''}</span>`;
-  }).join('') + (selTags.size ? '<button type="button" class="lnk" data-tfclear="1" style="font-size:12px;background:none;border:0;text-decoration:underline;cursor:pointer;color:var(--muted)">Limpar tags</button>' : '');
+  const af = document.activeElement, keep = af && af.dataset && af.dataset.tf && box.contains(af) ? af.dataset.tf : null;
+  $('tfBtn').textContent = !selTags.size ? 'Todas' : selTags.size === 1 ? [...selTags][0] : `${selTags.size} tags selecionadas`;
+  box.innerHTML = all.map((t, k) => {
+    const i = tagInfo(t);
+    return `<div class="msrow"><label><input type="checkbox" data-tf="${esc(t)}" ${selTags.has(t) ? 'checked' : ''}><span>${esc(t)}</span>${i.global ? '<span class="msg-pill" title="Tag global: todos que veem a conversa enxergam">global</span>' : ''}<span class="tfn" title="Conversas com esta tag">${i.n}</span></label>${i.apagavel ? `<button type="button" class="tfx" data-tfdel="${esc(t)}" aria-label="Apagar a tag ${esc(t)}" title="Apagar esta tag (só das conversas em que você a colocou)">×</button>` : ''}</div>`;
+  }).join('') + `<div class="msfoot"><button type="button" data-tfclear="1" ${selTags.size ? '' : 'disabled style="opacity:.5;cursor:default"'}>Limpar seleção</button></div>`;
+  if (keep) { const el = [...box.querySelectorAll('[data-tf]')].find(x => x.dataset.tf === keep); if (el) el.focus(); }
 }
+const tfOpen = on => { $('fTagBox').classList.toggle('hidden', !on); $('tfBtn').setAttribute('aria-expanded', on ? 'true' : 'false'); };
+$('tfBtn').onclick = e => { e.stopPropagation(); tfOpen($('fTagBox').classList.contains('hidden')); };
+document.addEventListener('click', e => { if (!e.target.closest('#tfWrap')) tfOpen(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('fTagBox').classList.contains('hidden')) { tfOpen(false); $('tfBtn').focus(); } });
 async function apagarTagTudo(t) {
   const i = tagInfo(t), partes = [];
   if (i.pessoal) partes.push(`${i.pessoal} conversa(s) com a tag pessoal`);
@@ -1770,10 +1784,14 @@ async function apagarTagTudo(t) {
   selTags.delete(t); refreshMarks();
 }
 $('fTagBox').addEventListener('click', e => {
-  const b = e.target.closest('[data-tf]'), x = e.target.closest('[data-tfdel]');
+  const x = e.target.closest('[data-tfdel]');
   if (e.target.closest('[data-tfclear]')) { selTags.clear(); shown = PAGE; fillTagFilter(); render(); return; }
-  if (x) return apagarTagTudo(x.dataset.tfdel);
-  if (b) { const t = b.dataset.tf; if (selTags.has(t)) selTags.delete(t); else selTags.add(t); shown = PAGE; fillTagFilter(); render(); }
+  if (x) apagarTagTudo(x.dataset.tfdel);
+});
+$('fTagBox').addEventListener('change', e => {
+  const b = e.target.closest('[data-tf]'); if (!b) return;
+  if (b.checked) selTags.add(b.dataset.tf); else selTags.delete(b.dataset.tf);
+  shown = PAGE; fillTagFilter(); render();
 });
 function refreshMarks() {
   fillTagFilter(); render();
