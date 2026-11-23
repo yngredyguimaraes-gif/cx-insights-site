@@ -147,6 +147,20 @@
   .nact a{color:var(--good);cursor:pointer;text-decoration:underline}
   .nact select{width:auto;padding:3px 8px;font-size:12px;border-radius:8px}
   .nact .lnk{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0;font-size:12px}
+  .kb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;margin-top:12px}
+  @media(max-width:700px){.kb{grid-template-columns:minmax(0,1fr)}}
+  .kcol{background:rgba(35,36,42,.05);border-radius:14px;padding:10px;min-height:160px}
+  .kcol.over{outline:2px dashed var(--good)}
+  .kch{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;padding:2px 4px 8px}
+  .kch span+span{font-size:12px;font-weight:400;color:var(--muted)}
+  .kcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px}
+  .kcard[draggable=true]{cursor:grab}
+  .kcard.drag{opacity:.4}
+  .kcard p{margin:6px 0;line-height:1.45;font-size:14px;white-space:pre-wrap;word-break:break-word}
+  .kmv{display:flex;gap:6px;margin-top:8px}
+  .kmv button{font-size:12px;padding:3px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;color:inherit}
+  .kmv button:hover{background:rgba(35,36,42,.06)}
+  .kwip{font-size:12px;color:#7a5600;padding:0 4px 8px}
   .nact .rbtn{color:var(--ink);font-weight:600}
   .nreps{margin-top:8px;border-left:2px solid var(--line);padding-left:12px}
   .nrep{display:flex;gap:8px;padding:6px 0}
@@ -392,11 +406,12 @@
       <div class="filters">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
           <div class="nbar" id="nBoxes"></div>
+          <div class="nbar" id="nView" style="margin-left:auto"><button type="button" class="nb on" data-v="lista">Lista</button><button type="button" class="nb" data-v="quadro">Quadro de melhorias</button></div>
           <button class="btn" id="nNew" type="button" style="width:auto;margin:0;padding:9px 18px">Escrever anotação</button>
         </div>
         <div id="nCompWrap" class="hidden"></div>
         <div class="ncards" id="nCards"></div>
-        <div class="row" style="margin-top:14px;justify-content:flex-start;gap:10px">
+        <div class="row" id="nGrpRow" style="margin-top:14px;justify-content:flex-start;gap:10px">
           <span>Agrupar por:</span>
           <div class="nbar"><button type="button" class="nb on" id="ngTipo">Tipo</button><button type="button" class="nb" id="ngPessoa">Pessoa</button></div>
         </div>
@@ -1049,8 +1064,52 @@ function noteItem(n, box) {
     <div class="nact">${resp}${conv}${status}${apagar}</div>${threadHtml(n)}</div></div>`;
 }
 
+/* quadro (kanban) dos pontos de melhoria */
+let nview = 'lista', kbWho = null, kbDrag = null;
+const KB_COLS = [['para_trabalhar', 'Para trabalhar'], ['trabalhando', 'Trabalhando'], ['evolui', 'Evoluí']], KB_LIM = 2;
+const kbPts = () => NOTES.filter(n => n.tipo === 'melhoria' && !n.privado && !n.resposta_a);
+function renderKanban() {
+  const a = actor(), ids = [...new Set(kbPts().map(n => n.para_id))];
+  const people = ids.map(id => ({ id, nome: pname(id) })).sort((x, y) => (y.id === a.id) - (x.id === a.id) || x.nome.localeCompare(y.nome, 'pt-BR'));
+  if (!people.some(p => p.id === kbWho)) kbWho = (people[0] || {}).id || null;
+  const L = kbPts().filter(n => n.para_id === kbWho), meu = !simulando() && kbWho === me.id;
+  const ev = L.filter(n => n.status === 'evolui').length;
+  if (!L.length) { $('nList').innerHTML = '<div class="vempty">Ainda não há pontos de melhoria para acompanhar. Quando a liderança enviar um ponto de melhoria, ele aparece aqui para você organizar.</div>'; return; }
+  const sel = people.length > 1 || !meu ? `<label for="kbWho" style="font-size:13px;color:var(--muted)">Quadro de</label> <select id="kbWho" style="width:auto">${people.map(p => `<option value="${p.id}" ${p.id === kbWho ? 'selected' : ''}>${esc(p.id === me.id && !simulando() ? p.nome + ' (você)' : p.nome)}</option>`).join('')}</select>` : '<b style="font-size:14px">Seus pontos de melhoria</b>';
+  const col = ([k, l]) => {
+    const C = L.filter(n => (n.status || 'para_trabalhar') === k), i = KB_COLS.findIndex(c => c[0] === k);
+    return `<div class="kcol" data-k="${k}"><div class="kch"><span>${l}</span><span>${C.length}</span></div>${k === 'trabalhando' && C.length > KB_LIM ? `<div class="kwip">Mais de ${KB_LIM} ao mesmo tempo. Foque em poucos.</div>` : ''}` +
+      C.map(n => `<div class="kcard" ${meu ? 'draggable="true"' : ''} data-id="${n.id}"><div class="nmeta"><b>${esc(pname(n.de_id))}</b><span class="when">${hora(new Date(n.criado_em))}</span></div>${n.trecho ? `<div class="nquote" title="Clique para ver o trecho inteiro">${esc(n.trecho)}</div>` : ''}<p>${esc(n.texto)}</p>
+        <div class="nact">${!n.conversation_id ? '<span>Sem conversa ligada</span>' : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">Abrir conversa …${esc(n.conversation_id.slice(-8))}</a>` : `<span>Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`}</div>
+        ${meu ? `<div class="kmv">${i > 0 ? `<button data-kbm="${n.id}" data-to="${KB_COLS[i - 1][0]}" type="button">← Voltar</button>` : ''}${i < 2 ? `<button data-kbm="${n.id}" data-to="${KB_COLS[i + 1][0]}" type="button">${i === 0 ? 'Começar' : 'Evoluí'} →</button>` : ''}</div>` : ''}</div>`).join('') +
+      (C.length ? '' : `<div class="note" style="padding:8px 4px">${meu ? 'Arraste um cartão para cá.' : 'Nenhum ponto aqui.'}</div>`) + '</div>';
+  };
+  $('nList').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div style="display:flex;gap:8px;align-items:center">${sel}</div><div style="min-width:180px;max-width:320px;flex:1"><div class="note" style="margin:0 0 4px">${ev} de ${L.length} pontos já evoluídos</div><div style="height:6px;border-radius:3px;background:rgba(35,36,42,.08);overflow:hidden"><i style="display:block;height:100%;width:${Math.round(ev / L.length * 100)}%;background:var(--good)"></i></div></div></div>
+    <div class="kb">${KB_COLS.map(col).join('')}</div>
+    <p class="note" style="margin-top:12px">${meu ? 'Arraste os cartões ou use os botões para mostrar em que etapa você está.' : 'Só a pessoa dona do quadro move os cartões. Para conversar sobre um ponto, use a aba Lista e o botão Responder.'}</p>`;
+}
+async function kbMove(id, to) {
+  if (simulando()) return;
+  const n = NOTES.find(x => x.id === id); if (!n || n.para_id !== me.id || (n.status || 'para_trabalhar') === to) return;
+  const { error } = await supa.from('anotacoes').update({ status: to }).eq('id', id);
+  if (error) { alert('Não foi possível mover o cartão.'); return; }
+  n.status = to; renderNotes(); renderDrawerNotes();
+}
+$('nView').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; nview = b.dataset.v; renderNotes(); };
+$('nList').addEventListener('click', e => { const b = e.target.closest('[data-kbm]'); if (b) kbMove(b.dataset.kbm, b.dataset.to); });
+$('nList').addEventListener('change', e => { if (e.target.id === 'kbWho') { kbWho = e.target.value; renderNotes(); } });
+$('nList').addEventListener('dragstart', e => { const c = e.target.closest('.kcard'); if (c) { kbDrag = c.dataset.id; c.classList.add('drag'); } });
+$('nList').addEventListener('dragend', () => { kbDrag = null; if (nview === 'quadro') renderNotes(); });
+$('nList').addEventListener('dragover', e => { const c = e.target.closest('.kcol'); if (c && kbDrag) { e.preventDefault(); c.classList.add('over'); } });
+$('nList').addEventListener('dragleave', e => { const c = e.target.closest('.kcol'); if (c) c.classList.remove('over'); });
+$('nList').addEventListener('drop', e => { const c = e.target.closest('.kcol'); if (c && kbDrag) { e.preventDefault(); kbMove(kbDrag, c.dataset.k); } });
+
 function renderNotes() {
   if (!me) return;
+  const q = nview === 'quadro';
+  document.querySelectorAll('#nView [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === nview));
+  ['nBoxes', 'nCards', 'nGrpRow'].forEach(i => $(i).classList.toggle('hidden', q));
+  if (q) { $('nPreview').classList.toggle('hidden', !simulando()); if (simulando()) $('nPreview').textContent = 'Prévia como ' + actor().nome + ': só leitura.'; return renderKanban(); }
   if (nbox === 'time' && (simulando() || !notesOf('time').length)) nbox = 'rec';
   const pv = $('nPreview'), sp = simPerson();
   pv.classList.toggle('hidden', !simulando());
