@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>CX Insights</title>
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#f6f6f6; --header:#fff; --card:#fff; --ink:rgba(35,36,42,.94); --muted:rgba(35,36,42,.62); --line:rgba(35,36,42,.12);
+    --brand:#4bd184; --brand-ink:#2e2f39; --dark:#2e2f39; --good:#27ae60; --warn:#d99a00; --bad:#e5484d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  button,input,select{font:inherit;color:inherit}
+  .hidden{display:none!important}
+
+  /* login */
+  #login{min-height:100vh;display:grid;place-items:center;padding:16px}
+  .login-box{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px;width:100%;max-width:380px}
+  .login-box h1{margin:0 0 4px;font-size:20px}
+  .login-box p{color:var(--muted);margin:0 0 18px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+  input:focus,select:focus{outline:2px solid var(--brand);outline-offset:0}
+  .btn{background:var(--brand);color:var(--brand-ink);border:0;border-radius:999px;padding:10px 14px;cursor:pointer;font-weight:600;width:100%;margin-top:16px}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);width:auto;margin:0;padding:7px 16px;font-weight:500}
+  .btn.ghost:hover{border-color:var(--muted)}
+  .demo-note{margin-top:14px;font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:12px}
+
+  /* app */
+  header{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--header);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  header .logo{font-weight:800;font-size:22px;letter-spacing:-.02em}
+  .logo i{font-style:normal;color:var(--brand)}
+  header .spacer{flex:1}
+  .pill{font-size:12px;padding:3px 9px;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+  main{max-width:1200px;margin:0 auto;padding:20px 16px 60px}
+  .tabs{display:flex;gap:6px;margin-bottom:16px}
+  .tab{padding:8px 16px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+  .tab.on{background:var(--dark);color:#fff;border-color:var(--dark);font-weight:600}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;background:var(--dark);border-radius:24px;padding:14px}
+  .kpi{background:rgba(255,255,255,.07);border-radius:16px;padding:12px 14px;color:#fff}
+  .kpi .v{color:var(--brand)}
+  .kpi .l{color:rgba(255,255,255,.7)}
+  .kpi .v{font-size:24px;font-weight:800}
+  .kpi .l{font-size:12px}
+
+  .filters{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:16px}
+  .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .filters .row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:12px}
+
+  .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:auto}
+  table{width:100%;border-collapse:collapse;min-width:860px}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{font-size:12px;color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--card)}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:rgba(35,36,42,.04)}
+  .score{display:inline-block;min-width:28px;text-align:center;border-radius:999px;padding:2px 8px;font-weight:700;color:#fff}
+  .s5,.s4{background:var(--good)} .s3{background:var(--warn)} .s2,.s1{background:var(--bad)}
+  .tag{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
+  .tag.yes{color:var(--good);border-color:var(--good)} .tag.no{color:var(--bad);border-color:var(--bad)}
+  .empty{padding:30px;text-align:center;color:var(--muted)}
+
+  /* ordenacao */
+  th.sortable{cursor:pointer;user-select:none}
+  th.sortable:hover{color:var(--ink)}
+  th.sortable::after{content:' 95';opacity:.35}
+  th.sortable[data-dir="1"]::after{content:' 91';opacity:1;color:var(--good)}
+  th.sortable[data-dir="-1"]::after{content:' 93';opacity:1;color:var(--good)}
+  /* acessos */
+  .note{font-size:12px;color:var(--muted);margin:0 0 12px}
+  .acc select{width:auto;padding:6px 10px}
+  .acc input[type=checkbox]{width:18px;height:18px;accent-color:var(--good);cursor:pointer}
+  .acc input:disabled{cursor:not-allowed;opacity:.4}
+  .acc td small{color:var(--muted);display:block}
+  /* drawer */
+  #drawer{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;z-index:10}
+  #drawer.open{transform:none}
+  .d-head{padding:16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+  .d-body{padding:16px;overflow:auto;flex:1}
+  .csat-box{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;font-size:13px}
+  .meta span{color:var(--muted);display:block;font-size:11px}
+  .msg{max-width:85%;padding:8px 11px;border-radius:10px;margin-bottom:8px;font-size:13px}
+  .msg.c{background:var(--bg);border:1px solid var(--line)}
+  .msg.a{background:var(--dark);color:#fff;margin-left:auto}
+  .msg small{display:block;opacity:.7;font-size:11px;margin-top:3px}
+
+  /* analysis */
+  .chart{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:16px}
+  .bars{display:flex;align-items:flex-end;gap:8px;height:180px;margin-top:10px;border-bottom:1px solid var(--line)}
+  .bar{flex:1;background:var(--brand);border-radius:8px 8px 0 0;position:relative;min-height:2px}
+  .bar b{position:absolute;top:-18px;left:0;right:0;text-align:center;font-size:11px;font-weight:600}
+  .xl{display:flex;gap:8px;margin-top:4px}.xl span{flex:1;text-align:center;font-size:11px;color:var(--muted)}
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  /* login com abas */
+  .seg{display:flex;gap:6px;margin:14px 0 4px}
+  .segbtn{flex:1;padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+  .segbtn.on{background:var(--dark);color:#fff;border-color:var(--dark);font-weight:600}
+  .link{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;margin-top:12px;padding:0}
+  .alert{margin-top:12px;padding:10px 12px;border-radius:12px;font-size:13px;display:none}
+  .alert.show{display:block}
+  .alert.err{background:rgba(229,72,77,.1);color:var(--bad)}
+  .alert.ok{background:rgba(39,174,96,.1);color:var(--good)}
+  .addp{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:14px;align-items:end}
+  .addp .btn{margin-top:0}
+  .loading{padding:40px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="login">
+  <div class="login-box" id="authBox">
+    <h1><span style="font-weight:800;font-size:26px;letter-spacing:-.02em">allu<span style="color:var(--brand)">.</span></span> CX Insights</h1>
+    <p>Acompanhe seus atendimentos e as avaliações de CSAT.</p>
+    <div class="seg">
+      <button type="button" class="segbtn on" data-mode="in">Entrar</button>
+      <button type="button" class="segbtn" data-mode="up">Primeiro acesso</button>
+    </div>
+    <form id="authForm">
+      <label for="email">E-mail da empresa</label>
+      <input id="email" type="email" required autocomplete="username" placeholder="voce@allugator.com">
+      <label for="pwd">Senha</label>
+      <input id="pwd" type="password" required minlength="8" autocomplete="current-password" placeholder="••••••••">
+      <button class="btn" id="authBtn" type="submit">Entrar</button>
+    </form>
+    <button class="link" id="forgot" type="button">Esqueci minha senha</button>
+    <div class="alert" id="authMsg" role="status"></div>
+    <div class="demo-note">No primeiro acesso, use o e-mail que a liderança cadastrou, crie uma senha de pelo menos 8 caracteres e confirme pelo e-mail que você vai receber.</div>
+  </div>
+  <form class="login-box hidden" id="newPwdBox">
+    <h1>Nova senha</h1>
+    <p>Escolha uma senha de pelo menos 8 caracteres.</p>
+    <label for="newPwd">Nova senha</label>
+    <input id="newPwd" type="password" required minlength="8" autocomplete="new-password">
+    <button class="btn" type="submit">Salvar senha</button>
+    <div class="alert" id="newPwdMsg" role="status"></div>
+  </form>
+</section>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hidden">
+  <header>
+    <span class="logo">allu<i>.</i> <span style="font-weight:500;font-size:14px;color:var(--muted)">CX Insights</span></span>
+    <span class="pill" id="roleTag"></span>
+    <span class="spacer"></span>
+    <span id="userName"></span>
+    <button class="btn ghost" id="logout">Sair</button>
+  </header>
+  <main>
+    <div class="tabs">
+      <button class="tab on" data-tab="conv">Conversas e CSAT</button>
+      <button class="tab" data-tab="ana">Minha análise</button>
+      <button class="tab hidden" id="tabAcc" data-tab="acc">Acessos</button>
+    </div>
+
+    <div id="loading" class="loading">Carregando suas conversas…</div>
+    <div id="loadError" class="alert err"></div>
+
+    <!-- aba conversas -->
+    <div id="tab-conv" class="hidden">
+      <div class="kpis" id="kpis"></div>
+      <div class="filters">
+        <div class="fgrid">
+          <div id="agentWrap"><label for="fAgent">Atendente</label><select id="fAgent"></select></div>
+          <div><label for="fCsat">Nota de CSAT</label>
+            <select id="fCsat"><option value="">Todas</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="low">Baixas (1 a 2)</option><option value="high">Altas (4 a 5)</option></select></div>
+          <div><label for="fFcr">FCR (sem retorno em 7 dias)</label>
+            <select id="fFcr"><option value="">Todos</option><option value="sim">Sim</option><option value="nao">Não</option><option value="em_apuracao">Em apuração</option><option value="sem_classificacao">Sem classificação</option></select></div>
+          <div><label for="fAdi">Adiamento (pausa de 12h+)</label>
+            <select id="fAdi"><option value="">Todas</option><option value="1">Com pausa descontada</option><option value="0">Sem pausa descontada</option></select></div>
+        </div>
+        <div class="row"><span id="count"></span><button class="btn ghost" id="clear">Limpar filtros</button></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th class="sortable" data-key="id">Conversa</th><th class="sortable" data-key="date">Data</th><th class="sortable" data-key="agent">Atendente</th><th class="sortable" data-key="csat">CSAT</th><th class="sortable" data-key="fcr">FCR</th>
+            <th class="sortable" data-key="dur">Atendimento</th><th class="sortable" data-key="gap">Entre resp.</th><th class="sortable" data-key="first">1ª resposta</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty hidden" id="empty">Nenhuma conversa com esses filtros.</div>
+      </div>
+      <p class="note" style="margin-top:12px">Tempos são estimativas: pausas de 12h ou mais (adiamento ou noite) são descontadas. Conversas com menos de 7 dias aparecem como "Em apuração" no FCR.</p>
+    </div>
+
+    <!-- aba análise -->
+    <div id="tab-ana" class="hidden">
+      <div class="filters">
+        <div class="controls">
+          <div><label for="aMetric">Métrica</label>
+            <select id="aMetric">
+              <option value="csat">CSAT médio</option>
+              <option value="fcr">% FCR</option>
+              <option value="dur">Tempo de atendimento (min)</option>
+              <option value="first">1ª resposta (min)</option>
+              <option value="gap">Tempo entre respostas (min)</option>
+              <option value="n">Nº de conversas</option>
+            </select></div>
+          <div><label for="aGroup">Agrupar por</label>
+            <select id="aGroup"><option value="week">Semana</option><option value="day">Dia</option><option value="csat">Nota de CSAT</option></select></div>
+          <div id="aAgentWrap"><label for="aAgent">Atendente</label><select id="aAgent"></select></div>
+        </div>
+        <div class="row"><span>A análise usa os mesmos dados da aba de conversas.</span></div>
+      </div>
+      <div class="chart"><strong id="aTitle"></strong><div class="bars" id="bars"></div><div class="xl" id="xl"></div></div>
+    </div>
+
+    <!-- aba acessos (só liderança) -->
+    <div id="tab-acc" class="hidden acc">
+      <div class="filters">
+        <p class="note">A liderança controla quem entra e o que cada pessoa vê. <strong>Ver todas as conversas</strong> libera o time todo para uma atendente específica. <strong>Ativo</strong> desligado bloqueia o acesso na hora. As mudanças são salvas no banco. Para a atendente ver as próprias conversas, o nome cadastrado precisa ser igual ao do Intercom.</p>
+        <div class="tablewrap"><table style="min-width:720px"><thead><tr><th>Pessoa</th><th>Perfil</th><th>Ver todas as conversas</th><th>Ativo</th><th>Conta</th></tr></thead><tbody id="accRows"></tbody></table></div>
+        <form class="addp" id="addForm">
+          <div><label for="addNome">Nome (como no Intercom)</label><input id="addNome" required></div>
+          <div><label for="addEmail">E-mail</label><input id="addEmail" type="email" required></div>
+          <div><label for="addPerfil">Perfil</label><select id="addPerfil"><option value="atendente">Atendente</option><option value="lider">Liderança</option></select></div>
+          <div><button class="btn" type="submit">Adicionar pessoa</button></div>
+        </form>
+        <div class="alert" id="accMsg" role="status"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- detalhe da conversa -->
+<aside id="drawer" aria-label="Detalhe da conversa">
+  <div class="d-head"><div><strong id="dTitle"></strong><div class="pill" id="dSub" style="margin-top:6px;display:inline-block"></div></div><button class="btn ghost" id="dClose">Fechar</button></div>
+  <div class="d-body" id="dBody"></div>
+</aside>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" integrity="sha384-GFr3yTh5lJznCbZfpTtXnwboFsxqtTQoeTZCRHhE0579KrRmlCzen5AA8ohaB5ug" crossorigin="anonymous"></script>
+<script>
+/* ---------- 0) CONEXÃO ----------
+   A chave abaixo é a chave PÚBLICA do projeto (feita para ficar no navegador).
+   Quem protege os dados é a regra de acesso por linha no banco. */
+const SUPABASE_URL = 'https://ktjvazdwkanszykmjmra.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ChJSvYCc_pC_lx2gscbjBA_Iz8-bEft';
+const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const msg = (el, kind, text) => { el.className = 'alert ' + (text ? 'show ' + kind : ''); el.textContent = text || ''; };
+const redirectUrl = location.origin + location.pathname;
+
+let me = null;        // linha da pessoa logada (tabela atendentes)
+let DATA = [];        // conversas visíveis para ela (o banco já filtra)
+let PEOPLE = [];      // lista de acessos (só liderança)
+
+/* ---------- 1) LOGIN ---------- */
+let mode = 'in';
+document.querySelectorAll('.segbtn').forEach(b => b.onclick = () => {
+  mode = b.dataset.mode;
+  document.querySelectorAll('.segbtn').forEach(x => x.classList.toggle('on', x === b));
+  $('authBtn').textContent = mode === 'in' ? 'Entrar' : 'Criar acesso';
+  $('pwd').autocomplete = mode === 'in' ? 'current-password' : 'new-password';
+  msg($('authMsg'), '', '');
+});
+const authErr = e => {
+  const m = (e && e.message) || '';
+  if (/invalid login/i.test(m)) return 'E-mail ou senha incorretos.';
+  if (/not confirmed/i.test(m)) return 'Confirme seu e-mail antes de entrar. Veja a caixa de entrada.';
+  if (/rate limit|too many|seconds/i.test(m)) return 'Muitas tentativas. Aguarde um pouco e tente de novo.';
+  if (/password/i.test(m)) return 'A senha precisa ter pelo menos 8 caracteres.';
+  return 'Não foi possível concluir. ' + m;
+};
+$('authForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = $('email').value.trim().toLowerCase(), password = $('pwd').value;
+  $('authBtn').disabled = true; msg($('authMsg'), '', '');
+  if (mode === 'in') {
+    const { error } = await supa.auth.signInWithPassword({ email, password });
+    if (error) msg($('authMsg'), 'err', authErr(error));
+  } else {
+    const { error } = await supa.auth.signUp({ email, password, options: { emailRedirectTo: redirectUrl } });
+    if (error) msg($('authMsg'), 'err', authErr(error));
+    else msg($('authMsg'), 'ok', 'Se esse e-mail estiver na lista de acesso, enviamos uma mensagem de confirmação. Abra o link e depois volte e entre.');
+  }
+  $('authBtn').disabled = false;
+});
+$('forgot').onclick = async () => {
+  const email = $('email').value.trim().toLowerCase();
+  if (!email) return msg($('authMsg'), 'err', 'Digite seu e-mail acima primeiro.');
+  const { error } = await supa.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl });
+  msg($('authMsg'), error ? 'err' : 'ok', error ? authErr(error) : 'Se o e-mail existir, enviamos um link para criar uma nova senha.');
+};
+$('newPwdBox').addEventListener('submit', async e => {
+  e.preventDefault();
+  const { error } = await supa.auth.updateUser({ password: $('newPwd').value });
+  if (error) return msg($('newPwdMsg'), 'err', authErr(error));
+  $('newPwdBox').classList.add('hidden'); $('authBox').classList.remove('hidden');
+  const { data } = await supa.auth.getSession(); if (data.session) bootstrap(data.session);
+});
+$('logout').onclick = async () => { await supa.auth.signOut(); };
+
+let booting = false;
+supa.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') { $('authBox').classList.add('hidden'); $('newPwdBox').classList.remove('hidden'); return; }
+  if (session) setTimeout(() => bootstrap(session), 0); else showLogin();
+});
+function showLogin() {
+  me = null; DATA = []; closeDrawer();
+  $('app').classList.add('hidden'); $('login').classList.remove('hidden');
+}
+async function bootstrap(session) {
+  if (booting || (me && me.user_id === session.user.id)) return;
+  booting = true;
+  try {
+    const { data: p, error } = await supa.from('atendentes').select('*').eq('user_id', session.user.id).maybeSingle();
+    if (error) throw error;
+    if (!p || !p.ativo) {
+      await supa.auth.signOut();
+      msg($('authMsg'), 'err', !p ? 'Seu e-mail ainda não está liberado. Fale com a liderança.' : 'Seu acesso está desativado. Fale com a liderança.');
+      return;
+    }
+    me = p;
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    $('userName').textContent = me.nome;
+    $('roleTag').textContent = me.perfil === 'lider' ? 'Liderança · vê o time todo' : me.ver_todos ? 'Atendente · vê o time todo' : 'Atendente · vê só os seus dados';
+    $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider');
+    await startApp();
+  } catch (e) {
+    $('loading').classList.add('hidden');
+    msg($('loadError'), 'err', 'Não foi possível carregar os dados: ' + (e.message || e));
+  } finally { booting = false; }
+}
+
+/* ---------- 2) DADOS ---------- */
+const mapRow = r => ({
+  id: r.conversation_id, date: new Date(r.aberta_em), fim: r.encerrada_em ? new Date(r.encerrada_em) : null,
+  avaliado: r.avaliado_em ? new Date(r.avaliado_em) : null, canal: r.canal, motivo: r.motivo,
+  agent: r.atendente_nome || '(sem nome)', csat: r.csat_nota, comment: r.csat_comentario, resolvido: r.resolvido_cliente,
+  fcr: r.fcr, dur: r.tempo_atendimento_s, pausas: r.pausas_descontadas || 0,
+  gap: r.tempo_entre_respostas_s == null ? null : Number(r.tempo_entre_respostas_s), first: r.primeira_resposta_s, longa: !!r.espera_longa
+});
+async function fetchAll() {
+  let all = [], from = 0;
+  for (;;) {
+    const { data, error } = await supa.from('conversas_csat').select('*').order('aberta_em', { ascending: false }).range(from, from + 999);
+    if (error) throw error;
+    all = all.concat(data);
+    if (data.length < 1000) break;
+    from += 1000;
+  }
+  return all.map(mapRow);
+}
+const canSeeAll = () => me.perfil === 'lider' || me.ver_todos;
+
+async function startApp(rows) {
+  $('loading').classList.remove('hidden'); msg($('loadError'), '', '');
+  DATA = rows || await fetchAll();
+  $('loading').classList.add('hidden'); $('tab-conv').classList.remove('hidden');
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'conv'));
+  ['tab-ana', 'tab-acc'].forEach(id => $(id).classList.add('hidden'));
+  setupFilters(); render();
+  if (me.perfil === 'lider') loadPeople();
+}
+function setupFilters() {
+  const show = canSeeAll();
+  ['agentWrap', 'aAgentWrap'].forEach(id => $(id).classList.toggle('hidden', !show));
+  const names = [...new Set(DATA.map(c => c.agent))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const opts = '<option value="">Todos</option>' + names.map(a => `<option>${esc(a)}</option>`).join('');
+  $('fAgent').innerHTML = opts; $('aAgent').innerHTML = opts;
+}
+
+/* ---------- 3) FILTROS E ORDENAÇÃO ---------- */
+const FILTERS = ['fAgent', 'fCsat', 'fFcr', 'fAdi'];
+function filtered() {
+  const f = { agent: $('fAgent').value, csat: $('fCsat').value, fcr: $('fFcr').value, adi: $('fAdi').value };
+  return DATA.filter(c => {
+    if (f.agent && c.agent !== f.agent) return false;
+    if (f.csat === 'low' && !(c.csat <= 2)) return false;
+    if (f.csat === 'high' && !(c.csat >= 4)) return false;
+    if (/^[1-5]$/.test(f.csat) && c.csat !== +f.csat) return false;
+    if (f.fcr && c.fcr !== f.fcr) return false;
+    if (f.adi !== '' && (c.pausas > 0) !== (f.adi === '1')) return false;
+    return true;
+  });
+}
+let sort = { key: 'date', dir: -1 };
+const FCR_ORDER = { sim: 3, nao: 2, em_apuracao: 1, sem_classificacao: 0 };
+const SORT = { id: c => c.id, date: c => +c.date, agent: c => c.agent, csat: c => c.csat, fcr: c => FCR_ORDER[c.fcr], dur: c => c.dur, gap: c => c.gap, first: c => c.first };
+document.querySelector('thead').addEventListener('click', e => {
+  const th = e.target.closest('th.sortable'); if (!th) return;
+  sort = { key: th.dataset.key, dir: sort.key === th.dataset.key ? -sort.dir : 1 };
+  render();
+});
+
+const fmtSec = s => s == null ? '—' : s >= 3600 ? `${Math.floor(s / 3600)}h ${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}min` : s >= 60 ? `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s` : `${Math.round(s)}s`;
+const fmtD = d => d ? d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+const FCR_LABEL = { sim: ['Sim', 'yes'], nao: ['Não', 'no'], em_apuracao: ['Em apuração', ''], sem_classificacao: ['Sem classif.', ''] };
+const fcrTag = v => { const [t, k] = FCR_LABEL[v] || ['—', '']; return `<span class="tag ${k}">${t}</span>`; };
+const sc = n => `<span class="score s${n}">${n}</span>`;
+const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+const nums = (list, f) => list.map(f).filter(v => v != null);
+
+function render() {
+  const list = filtered(), get = SORT[sort.key];
+  list.sort((a, b) => {
+    const va = get(a), vb = get(b);
+    if (va == null && vb == null) return b.date - a.date;
+    if (va == null) return 1; if (vb == null) return -1;
+    return (va > vb ? 1 : va < vb ? -1 : b.date - a.date) * (va === vb ? 1 : sort.dir);
+  });
+  document.querySelectorAll('th.sortable').forEach(th => th.dataset.dir = th.dataset.key === sort.key ? sort.dir : '');
+  const fcrOk = list.filter(c => c.fcr === 'sim' || c.fcr === 'nao');
+  const mDur = avg(nums(list, c => c.dur)), mFirst = avg(nums(list.filter(c => !c.longa), c => c.first));
+  $('kpis').innerHTML = [
+    ['CSAT médio', list.length ? avg(list.map(c => c.csat)).toFixed(2) : '—'],
+    ['Notas 4 e 5 (satisfeitos)', list.length ? Math.round(list.filter(c => c.csat >= 4).length / list.length * 100) + '%' : '—'],
+    ['FCR (conversas apuradas)', fcrOk.length ? Math.round(fcrOk.filter(c => c.fcr === 'sim').length / fcrOk.length * 100) + '%' : '—'],
+    ['Tempo médio de atendimento', fmtSec(mDur)],
+    ['1ª resposta (média, sem esperas longas)', fmtSec(mFirst)],
+    ['Conversas', list.length]
+  ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+  $('count').textContent = `${list.length} conversa(s) encontrada(s)`;
+  $('empty').classList.toggle('hidden', list.length > 0);
+  $('rows').innerHTML = list.slice(0, 300).map(c => `<tr data-id="${esc(c.id)}">
+    <td><strong>${esc(c.id)}</strong><div style="color:var(--muted);font-size:12px">${esc(c.motivo || 'sem classificação')}</div></td>
+    <td>${fmtD(c.date)}</td><td>${esc(c.agent)}</td><td>${sc(c.csat)}</td><td>${fcrTag(c.fcr)}</td>
+    <td>${fmtSec(c.dur)}${c.pausas ? ` <span class="tag" title="${c.pausas} pausa(s) de 12h ou mais descontada(s)">adiada</span>` : ''}</td>
+    <td>${fmtSec(c.gap)}</td><td>${fmtSec(c.first)}${c.longa ? ' <span class="tag" title="Espera longa: tempo real, fora da média">espera longa</span>' : ''}</td></tr>`).join('');
+  renderAnalysis();
+}
+FILTERS.forEach(id => $(id).addEventListener('change', render));
+$('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); render(); };
+
+/* ---------- 4) CONVERSA + CSAT ---------- */
+$('rows').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) openDrawer(DATA.find(c => c.id === tr.dataset.id)); });
+function openDrawer(c) {
+  if (!c) return;
+  $('dTitle').textContent = `${c.id} · ${c.motivo || 'Sem classificação'}`;
+  $('dSub').textContent = `${c.agent} · ${c.canal || 'canal n/d'}`;
+  const item = (l, v) => `<div><span>${l}</span>${v}</div>`;
+  const sec = t => `<div style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.04em">${t}</div>`;
+  $('dBody').innerHTML = `
+    <div class="csat-box"><span style="font-size:12px;color:var(--muted)">Avaliação CSAT</span>
+      <div style="margin-top:6px">${sc(c.csat)} <span style="margin-left:8px">${c.comment ? esc(c.comment) : 'Sem comentário.'}</span></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Avaliada em ${fmtD(c.avaliado)} · cliente disse que foi resolvido: ${c.resolvido === 'sim' ? 'sim' : c.resolvido === 'nao' ? 'não' : '—'}</div></div>
+    ${sec('Conversa')}
+    <div class="meta">
+      ${item('Protocolo', esc(c.id))}${item('Canal', esc(c.canal || '—'))}
+      ${item('Atendente', esc(c.agent))}${item('Motivo', esc(c.motivo || 'sem classificação'))}
+      ${item('Abertura', fmtD(c.date))}${item('Encerramento', fmtD(c.fim))}
+    </div>
+    ${sec('Indicadores')}
+    <div class="meta">
+      ${item('FCR (sem retorno em 7 dias)', fcrTag(c.fcr))}${item('1ª resposta', fmtSec(c.first) + (c.longa ? ' · espera longa' : ''))}
+      ${item('Atendimento (sem pausas de 12h+)', fmtSec(c.dur))}${item('Entre respostas (média)', fmtSec(c.gap))}
+      ${c.pausas ? `<div style="grid-column:1/-1;border:1px dashed var(--line);border-radius:8px;padding:8px"><span>Adiamento estimado</span>${c.pausas} pausa(s) de 12h ou mais foram descontadas do tempo de atendimento.</div>` : ''}
+    </div>
+    <p class="note" style="margin-top:16px">A transcrição da conversa ainda não está disponível nesta versão.</p>`;
+  $('drawer').classList.add('open');
+}
+const closeDrawer = () => $('drawer').classList.remove('open');
+$('dClose').onclick = closeDrawer;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+/* ---------- 5) ACESSOS (liderança) ---------- */
+async function loadPeople() {
+  const { data, error } = await supa.from('atendentes').select('*').order('perfil').order('nome');
+  if (error) return msg($('accMsg'), 'err', 'Não foi possível carregar a lista: ' + error.message);
+  PEOPLE = data; renderAccess();
+}
+function renderAccess() {
+  $('accRows').innerHTML = PEOPLE.map(a => {
+    const eu = me && a.id === me.id, lider = a.perfil === 'lider';
+    return `<tr><td><strong>${esc(a.nome)}${eu ? ' (você)' : ''}</strong><small>${esc(a.email)}</small></td>
+      <td><select data-id="${a.id}" data-f="perfil" ${eu ? 'disabled' : ''}><option value="atendente" ${!lider ? 'selected' : ''}>Atendente</option><option value="lider" ${lider ? 'selected' : ''}>Liderança</option></select></td>
+      <td><input type="checkbox" data-id="${a.id}" data-f="ver_todos" ${lider || a.ver_todos ? 'checked' : ''} ${lider ? 'disabled' : ''}></td>
+      <td><input type="checkbox" data-id="${a.id}" data-f="ativo" ${a.ativo ? 'checked' : ''} ${eu ? 'disabled' : ''}></td>
+      <td>${a.user_id ? '<span class="tag yes">Conta criada</span>' : '<span class="tag">Aguardando 1º acesso</span>'}</td></tr>`;
+  }).join('');
+}
+$('accRows').addEventListener('change', async e => {
+  const el = e.target, f = el.dataset.f; if (!f) return;
+  const value = el.type === 'checkbox' ? el.checked : el.value;
+  msg($('accMsg'), '', '');
+  const { error } = await supa.from('atendentes').update({ [f]: value }).eq('id', el.dataset.id);
+  if (error) msg($('accMsg'), 'err', /lideranca/i.test(error.message) ? 'Precisa existir pelo menos uma liderança ativa.' : 'Não foi possível salvar: ' + error.message);
+  await loadPeople();
+});
+$('addForm').addEventListener('submit', async e => {
+  e.preventDefault(); msg($('accMsg'), '', '');
+  const nome = $('addNome').value.trim().replace(/\s+/g, ' '), email = $('addEmail').value.trim().toLowerCase();
+  const { error } = await supa.from('atendentes').insert({ nome, nome_normalizado: nome.toLowerCase(), email, perfil: $('addPerfil').value });
+  if (error) return msg($('accMsg'), 'err', /duplicate|unique/i.test(error.message) ? 'Esse e-mail já está na lista.' : 'Não foi possível adicionar: ' + error.message);
+  $('addForm').reset(); msg($('accMsg'), 'ok', 'Pessoa adicionada. Ela já pode fazer o primeiro acesso com esse e-mail.');
+  await loadPeople();
+});
+
+/* ---------- 6) ABAS + ANÁLISE ---------- */
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+  ['conv', 'ana', 'acc'].forEach(k => $('tab-' + k).classList.toggle('hidden', t.dataset.tab !== k || (k === 'conv' && $('loading') && !$('loading').classList.contains('hidden'))));
+  closeDrawer();
+});
+const METRICS = {
+  csat: { label: 'CSAT médio', f: l => avg(l.map(c => c.csat)) ?? 0, fmt: v => v.toFixed(2) },
+  fcr: { label: '% FCR', f: l => { const k = l.filter(c => c.fcr === 'sim' || c.fcr === 'nao'); return k.length ? k.filter(c => c.fcr === 'sim').length / k.length * 100 : 0; }, fmt: v => Math.round(v) + '%' },
+  dur: { label: 'Tempo de atendimento (min)', f: l => (avg(nums(l, c => c.dur)) ?? 0) / 60, fmt: v => v.toFixed(1) },
+  first: { label: '1ª resposta (min)', f: l => (avg(nums(l.filter(c => !c.longa), c => c.first)) ?? 0) / 60, fmt: v => v.toFixed(1) },
+  gap: { label: 'Tempo entre respostas (min)', f: l => (avg(nums(l, c => c.gap)) ?? 0) / 60, fmt: v => v.toFixed(1) },
+  n: { label: 'Nº de conversas', f: l => l.length, fmt: v => v }
+};
+['aMetric', 'aGroup', 'aAgent'].forEach(id => $(id).addEventListener('change', renderAnalysis));
+function renderAnalysis() {
+  if (!me) return;
+  const m = METRICS[$('aMetric').value], g = $('aGroup').value, ag = $('aAgent').value;
+  const list = DATA.filter(c => !ag || c.agent === ag);
+  const key = c => g === 'csat' ? 'Nota ' + c.csat
+    : g === 'day' ? c.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    : (() => { const d = new Date(c.date); d.setDate(d.getDate() - d.getDay()); return 'Sem ' + d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); })();
+  const groups = new Map();
+  [...list].sort((a, b) => a.date - b.date).forEach(c => { const k = key(c); (groups.get(k) || groups.set(k, []).get(k)).push(c); });
+  let entries = [...groups.entries()]; if (g === 'day') entries = entries.slice(-14); if (g === 'csat') entries.sort();
+  const vals = entries.map(([k, l]) => [k, m.f(l)]), max = Math.max(...vals.map(v => v[1]), 1);
+  $('aTitle').textContent = `${m.label} por ${g === 'week' ? 'semana' : g === 'day' ? 'dia (últimos 14)' : 'nota de CSAT'}${ag ? ' · ' + ag : ''}`;
+  $('bars').innerHTML = vals.map(([k, v]) => `<div class="bar" style="height:${v / max * 100}%"><b>${m.fmt(v)}</b></div>`).join('');
+  $('xl').innerHTML = vals.map(([k]) => `<span>${esc(k)}</span>`).join('');
+}
+
+/* sessão já existente (recarregar a página) */
+supa.auth.getSession().then(({ data }) => { if (!data.session) showLogin(); });
+</script>
+</body>
+</html>
