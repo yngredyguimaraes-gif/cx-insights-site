@@ -77,6 +77,8 @@
   .acc td small{color:var(--muted);display:block}
   .msg.i{background:transparent;border:1px dashed var(--line);color:var(--muted);margin-right:auto}
   .msg{white-space:pre-wrap;word-break:break-word}
+  .viewas{width:auto;padding:6px 10px;border-radius:999px;font-size:13px}
+  .viewbar{background:var(--dark);color:#fff;border-radius:16px;padding:10px 14px;margin-bottom:12px;font-size:13px}
   /* drawer */
   #drawer{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;z-index:10}
   #drawer.open{transform:none}
@@ -149,6 +151,7 @@
   <header>
     <span class="logo">allu<i>.</i> <span style="font-weight:500;font-size:14px;color:var(--muted)">CX Insights</span></span>
     <span class="pill" id="roleTag"></span>
+    <select id="viewAs" class="viewas hidden" aria-label="Ver como" title="Ver como outra pessoa"></select>
     <span class="spacer"></span>
     <span id="userName"></span>
     <button class="btn ghost" id="logout">Sair</button>
@@ -160,6 +163,7 @@
       <button class="tab hidden" id="tabAcc" data-tab="acc">Acessos</button>
     </div>
 
+    <div id="viewBar" class="viewbar hidden"></div>
     <div id="loading" class="loading">Carregando suas conversas…</div>
     <div id="loadError" class="alert err"></div>
 
@@ -254,6 +258,8 @@ const redirectUrl = location.origin + location.pathname;
 let me = null;        // linha da pessoa logada (tabela atendentes)
 let DATA = [];        // conversas visíveis para ela (o banco já filtra)
 let PEOPLE = [];      // lista de acessos (só liderança)
+let viewAs = null;    // liderança vendo a tela como uma atendente (só simula a tela)
+const scope = () => viewAs ? DATA.filter(c => c.agent === viewAs) : DATA;
 
 /* ---------- 1) LOGIN ---------- */
 let mode = 'in';
@@ -360,11 +366,25 @@ async function startApp(rows) {
   $('loading').classList.add('hidden'); $('tab-conv').classList.remove('hidden');
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'conv'));
   ['tab-ana', 'tab-acc'].forEach(id => $(id).classList.add('hidden'));
-  setupFilters(); render();
+  viewAs = null;
+  const nomes = [...new Set(DATA.map(c => c.agent))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  $('viewAs').innerHTML = '<option value="">Ver como: eu mesmo</option>' + nomes.map(n => `<option value="${esc(n)}">Ver como: ${esc(n)}</option>`).join('');
+  $('viewAs').classList.toggle('hidden', me.perfil !== 'lider'); $('viewAs').value = '';
+  applyView();
   if (me.perfil === 'lider') loadPeople();
 }
+function applyView() {
+  const sim = !!viewAs;
+  $('viewBar').classList.toggle('hidden', !sim);
+  $('viewBar').textContent = sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; volte em "Ver como: eu mesmo".` : '';
+  $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider' || sim);
+  if (sim && !$('tab-acc').classList.contains('hidden')) { document.querySelector('.tab[data-tab=conv]').click(); }
+  FILTERS.forEach(id => { $(id).value = ''; }); $('aAgent').value = '';
+  shown = PAGE; closeDrawer(); setupFilters(); render();
+}
+$('viewAs').addEventListener('change', e => { viewAs = e.target.value || null; applyView(); });
 function setupFilters() {
-  const show = canSeeAll();
+  const show = canSeeAll() && !viewAs;
   ['agentWrap', 'aAgentWrap'].forEach(id => $(id).classList.toggle('hidden', !show));
   const names = [...new Set(DATA.map(c => c.agent))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const opts = '<option value="">Todos</option>' + names.map(a => `<option>${esc(a)}</option>`).join('');
@@ -375,7 +395,7 @@ function setupFilters() {
 const FILTERS = ['fAgent', 'fCsat', 'fFcr', 'fAdi'];
 function filtered() {
   const f = { agent: $('fAgent').value, csat: $('fCsat').value, fcr: $('fFcr').value, adi: $('fAdi').value };
-  return DATA.filter(c => {
+  return scope().filter(c => {
     if (f.agent && c.agent !== f.agent) return false;
     if (f.csat === 'low' && !(c.csat <= 2)) return false;
     if (f.csat === 'high' && !(c.csat >= 4)) return false;
@@ -544,7 +564,7 @@ const METRICS = {
 function renderAnalysis() {
   if (!me) return;
   const m = METRICS[$('aMetric').value], g = $('aGroup').value, ag = $('aAgent').value;
-  const list = DATA.filter(c => !ag || c.agent === ag);
+  const list = scope().filter(c => !ag || c.agent === ag);
   const key = c => g === 'csat' ? 'Nota ' + c.csat
     : g === 'day' ? c.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
     : (() => { const d = new Date(c.date); d.setDate(d.getDate() - d.getDay()); return 'Sem ' + d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); })();
