@@ -496,7 +496,7 @@
     <!-- aba acessos (só liderança) -->
     <div id="tab-acc" class="hidden acc">
       <div class="filters">
-        <p class="note">A liderança controla quem entra e o que cada pessoa vê. <strong>Ver todas as conversas</strong> libera o time todo para uma atendente específica. <strong>Ativo</strong> desligado bloqueia o acesso na hora. As mudanças são salvas no banco. Para a atendente ver as próprias conversas, o nome cadastrado precisa ser igual ao do Intercom.</p>
+        <p class="note">A liderança controla quem entra e o que cada pessoa vê, mas só o administrador concede ou retira o acesso de administrador. <strong>Ver todas as conversas</strong> libera o time todo para uma atendente específica. <strong>Ativo</strong> desligado bloqueia o acesso na hora. As mudanças são salvas no banco. Para a atendente ver as próprias conversas, o nome cadastrado precisa ser igual ao do Intercom.</p>
         <div class="tablewrap"><table style="min-width:720px"><thead><tr><th>Pessoa</th><th>Perfil</th><th>Ver todas as conversas</th><th>Ativo</th><th>Conta</th></tr></thead><tbody id="accRows"></tbody></table></div>
         <form class="addp" id="addForm">
           <div><label for="addNome">Nome (como no Intercom)</label><input id="addNome" required></div>
@@ -549,11 +549,13 @@ const redirectUrl = location.origin + location.pathname;
 
 let me = null;        // linha da pessoa logada (tabela atendentes)
 let DATA = [];        // conversas visíveis para ela (o banco já filtra)
+const isLid = p => !!p && (p.perfil === 'lider' || p.perfil === 'admin');   // liderança ou administrador
+const isAdm = p => !!p && p.perfil === 'admin';
 let PEOPLE = [];      // lista de acessos (só liderança)
 let viewAs = null;    // liderança vendo a tela como uma atendente (só simula a tela)
 const scope = () => viewAs && !simSeesAll() ? DATA.filter(c => c.agent === viewAs) : DATA;
-const simSeesAll = () => { const p = simPerson(); return !!p && (p.perfil === 'lider' || !!p.ver_todos); };
-const seesAllNow = () => viewAs ? simSeesAll() : (me.perfil === 'lider' || !!me.ver_todos);
+const simSeesAll = () => { const p = simPerson(); return !!p && (isLid(p) || !!p.ver_todos); };
+const seesAllNow = () => viewAs ? simSeesAll() : (isLid(me) || !!me.ver_todos);
 
 /* ---------- 1) LOGIN ---------- */
 let mode = 'in';
@@ -625,8 +627,8 @@ async function bootstrap(session) {
     me = p;
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
     $('userName').textContent = me.nome; $('avImg').innerHTML = esc(ini(me.nome));
-    $('roleTag').textContent = me.perfil === 'lider' ? 'Liderança · vê o time todo' : me.ver_todos ? 'Atendente · vê o time todo' : 'Atendente · vê só os seus dados';
-    $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider');
+    $('roleTag').textContent = isAdm(me) ? 'Administrador · acesso total' : me.perfil === 'lider' ? 'Liderança · vê o time todo' : me.ver_todos ? 'Atendente · vê o time todo' : 'Atendente · vê só os seus dados';
+    $('tabAcc').classList.toggle('hidden', !isLid(me));
     await startApp();
   } catch (e) {
     $('loading').classList.add('hidden');
@@ -654,7 +656,7 @@ async function fetchAll() {
   }
   return all.map(mapRow);
 }
-const canSeeAll = () => me.perfil === 'lider' || me.ver_todos;
+const canSeeAll = () => isLid(me) || me.ver_todos;
 
 /* F5 continua na mesma aba e na mesma conversa (guardado só nesta aba do navegador) */
 const KEEP = { get(k) { try { return sessionStorage.getItem('cx_' + k); } catch (_) { return null; } }, set(k, v) { try { v == null ? sessionStorage.removeItem('cx_' + k) : sessionStorage.setItem('cx_' + k, v); } catch (_) {} } };
@@ -667,12 +669,12 @@ async function startApp(rows) {
   ['tab-conv', 'tab-ana', 'tab-dev', 'tab-acc', 'tab-sug'].forEach(id => $(id).classList.add('hidden'));
   viewAs = null; nbox = 'rec'; nft = null; $('nCompWrap').classList.add('hidden'); $('nCompWrap').innerHTML = '';
   buildViewAs();
-  $('viewAs').classList.toggle('hidden', me.perfil !== 'lider'); $('viewAs').value = '';
+  $('viewAs').classList.toggle('hidden', !isLid(me)); $('viewAs').value = '';
   applyView();
   loadNotes();
   loadTeamWeekly();
   loadReviews(); loadMarks(); $('tabSug').classList.toggle('hidden', !souDono()); loadSugs();
-  if (me.perfil === 'lider') loadPeople();
+  if (isLid(me)) loadPeople();
   if (RESTORE) {
     const r = RESTORE; RESTORE = null;
     const t = r.tab && document.querySelector(`.tab[data-tab="${r.tab}"]`);
@@ -684,7 +686,7 @@ function applyView() {
   const sim = !!viewAs;
   $('viewBar').classList.toggle('hidden', !sim);
   $('viewBar').textContent = sim && simSeesAll() ? `Você está vendo a tela como ${viewAs} (liderança): o time todo, como essa pessoa veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : '';
-  $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider' || sim);
+  $('tabAcc').classList.toggle('hidden', !isLid(me) || sim);
   $('tabSug').classList.toggle('hidden', !souDono() || sim);
   if (sim && !$('tab-sug').classList.contains('hidden')) { document.querySelector('.tab[data-tab=sem]').click(); }
   if (sim && !$('tab-acc').classList.contains('hidden')) { document.querySelector('.tab[data-tab=sem]').click(); }
@@ -885,21 +887,25 @@ async function loadPeople() {
   PEOPLE = data; renderAccess();
 }
 function renderAccess() {
+  const souAdm = isAdm(me);
   $('accRows').innerHTML = PEOPLE.map(a => {
-    const eu = me && a.id === me.id, lider = a.perfil === 'lider';
+    const eu = me && a.id === me.id, adm = isAdm(a), lider = isLid(a);
+    const trava = eu || (adm && !souAdm);   // liderança nunca mexe em administrador; ninguém muda o próprio perfil
+    const opt = (v, l) => `<option value="${v}" ${a.perfil === v ? 'selected' : ''}>${l}</option>`;
     return `<tr><td><strong>${esc(a.nome)}${eu ? ' (você)' : ''}</strong><small>${esc(a.email)}</small></td>
-      <td><select data-id="${a.id}" data-f="perfil" ${eu ? 'disabled' : ''}><option value="atendente" ${!lider ? 'selected' : ''}>Atendente</option><option value="lider" ${lider ? 'selected' : ''}>Liderança</option></select></td>
-      <td><input type="checkbox" data-id="${a.id}" data-f="ver_todos" ${lider || a.ver_todos ? 'checked' : ''} ${lider ? 'disabled' : ''}></td>
-      <td><input type="checkbox" data-id="${a.id}" data-f="ativo" ${a.ativo ? 'checked' : ''} ${eu ? 'disabled' : ''}></td>
+      <td><select data-id="${a.id}" data-f="perfil" ${trava ? 'disabled' : ''}>${opt('atendente', 'Atendente')}${opt('lider', 'Liderança')}${souAdm || adm ? opt('admin', 'Administrador') : ''}</select></td>
+      <td><input type="checkbox" data-id="${a.id}" data-f="ver_todos" ${lider || a.ver_todos ? 'checked' : ''} ${lider || (adm && !souAdm) ? 'disabled' : ''}></td>
+      <td><input type="checkbox" data-id="${a.id}" data-f="ativo" ${a.ativo ? 'checked' : ''} ${trava ? 'disabled' : ''}></td>
       <td>${a.user_id ? '<span class="tag yes">Conta criada</span>' : '<span class="tag">Aguardando 1º acesso</span>'}</td></tr>`;
   }).join('');
+  $('addPerfil').innerHTML = '<option value="atendente">Atendente</option><option value="lider">Liderança</option>' + (souAdm ? '<option value="admin">Administrador</option>' : '');
 }
 $('accRows').addEventListener('change', async e => {
   const el = e.target, f = el.dataset.f; if (!f) return;
   const value = el.type === 'checkbox' ? el.checked : el.value;
   msg($('accMsg'), '', '');
   const { error } = await supa.from('atendentes').update({ [f]: value }).eq('id', el.dataset.id);
-  if (error) msg($('accMsg'), 'err', /lideranca/i.test(error.message) ? 'Precisa existir pelo menos uma liderança ativa.' : 'Não foi possível salvar: ' + error.message);
+  if (error) msg($('accMsg'), 'err', /pelo menos um administrador/i.test(error.message) ? 'Precisa existir pelo menos um administrador ativo.' : 'Não foi possível salvar: ' + error.message);
   await loadPeople();
 });
 $('addForm').addEventListener('submit', async e => {
@@ -1284,7 +1290,7 @@ function renderNotes() {
 /* escrever */
 const recipients = () => {
   const a = actor();
-  return [...NPEOPLE.values()].filter(p => p.ativo && p.id !== a.id && (a.ve_tudo_anotacoes || p.id === a.lider_direto_id || p.lider_direto_id === a.id
+  return [...NPEOPLE.values()].filter(p => p.ativo && p.id !== a.id && (isAdm(a) || a.ve_tudo_anotacoes || p.id === a.lider_direto_id || p.lider_direto_id === a.id
     || (a.perfil === 'lider' && p.perfil === 'lider' && a.lider_direto_id && p.lider_direto_id === a.lider_direto_id)))
     .sort((x, y) => (y.id === a.lider_direto_id) - (x.id === a.lider_direto_id) || x.nome.localeCompare(y.nome, 'pt-BR'));
 };
@@ -1576,9 +1582,9 @@ async function loadTeamWeekly() {
 }
 /* "Ver como": liderança primeiro, depois atendentes */
 function buildViewAs() {
-  if (!me || me.perfil !== 'lider') return;
-  const at = new Set(DATA.map(c => c.agent)); NPEOPLE.forEach(p => { if (p.perfil !== 'lider' && p.ativo) at.add(p.nome); });
-  const lids = [...NPEOPLE.values()].filter(p => p.perfil === 'lider' && p.ativo && p.id !== me.id).map(p => p.nome).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  if (!me || !isLid(me)) return;
+  const at = new Set(DATA.map(c => c.agent)); NPEOPLE.forEach(p => { if (!isLid(p) && p.ativo) at.add(p.nome); });
+  const lids = [...NPEOPLE.values()].filter(p => isLid(p) && p.ativo && p.id !== me.id).map(p => p.nome).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const opt = n => `<option value="${esc(n)}">${esc(n)}</option>`;
   const cur = viewAs || '';
   $('viewAs').innerHTML = '<option value="">Ver como: eu mesmo</option>' + (lids.length ? `<optgroup label="Liderança">${lids.map(opt).join('')}</optgroup>` : '') +
@@ -1838,7 +1844,7 @@ const tagsOf = id => [...new Set([...myTags(id), ...gTags(id).map(g => g.tag)])]
 const allKnownTags = () => { const s = new Set(); if (!simulando()) { MYMARK.forEach(m => m.tags.forEach(t => s.add(t))); GTAGS.forEach(l => l.forEach(g => s.add(g.tag))); } return [...s].sort((a, b) => a.localeCompare(b, 'pt-BR')); };
 function tagChips(id, editavel) {
   const x = (t, g) => editavel ? `<button type="button" data-mk="rm" data-tag="${esc(t)}" data-g="${g ? 1 : 0}" aria-label="Remover a tag ${esc(t)}" title="Remover">×</button>` : '';
-  return gTags(id).map(g => `<span class="ctag g" title="Tag global, criada por ${esc(pname(g.criado_por))}. Todos que veem esta conversa a enxergam.">${esc(g.tag)}${editavel && me && (g.criado_por === me.id || me.perfil === 'lider') ? x(g.tag, true) : ''}</span>`).join(' ') + ' ' +
+  return gTags(id).map(g => `<span class="ctag g" title="Tag global, criada por ${esc(pname(g.criado_por))}. Todos que veem esta conversa a enxergam.">${esc(g.tag)}${editavel && me && (g.criado_por === me.id || isLid(me)) ? x(g.tag, true) : ''}</span>`).join(' ') + ' ' +
     myTags(id).map(t => `<span class="ctag" title="Tag pessoal: só você vê">${esc(t)}${x(t, false)}</span>`).join(' ');
 }
 const rowMarks = c => [tagChips(c.id, false).trim(), marks(c)].filter(Boolean).join(' ');
@@ -1930,7 +1936,7 @@ function renderDrawerMarks(c) {
 /* catálogo para o menu da conversa: cada tag (e seu tipo), se está aqui e em quantas OUTRAS conversas é usada */
 function catalogo(id) {
   const m = new Map(), get = (t, g) => { const k = (g ? 'g' : 'p') + t; if (!m.has(k)) m.set(k, { t, g, aqui: false, outras: 0, meu: false }); return m.get(k); };
-  GTAGS.forEach((l, cid) => l.forEach(x => { const e = get(x.tag, true); if (cid === id) { e.aqui = true; e.meu = !!me && (x.criado_por === me.id || me.perfil === 'lider'); } else e.outras++; }));
+  GTAGS.forEach((l, cid) => l.forEach(x => { const e = get(x.tag, true); if (cid === id) { e.aqui = true; e.meu = !!me && (x.criado_por === me.id || isLid(me)); } else e.outras++; }));
   MYMARK.forEach((mk, cid) => mk.tags.forEach(t => { const e = get(t, false); if (cid === id) { e.aqui = true; e.meu = true; } else e.outras++; }));
   return [...m.values()].sort((a, b) => a.t.localeCompare(b.t, 'pt-BR') || (b.g - a.g));
 }
@@ -1986,7 +1992,7 @@ document.addEventListener('click', e => { if (dmOpen && !e.target.closest('#dmSe
 const SUG_T = { melhoria: 'Melhoria', erro: 'Erro', outro: 'Outra ideia' }, SUG_S = { nova: 'Nova', em_analise: 'Em análise', feita: 'Feita', descartada: 'Descartada' };
 const sugCls = t => t === 'erro' ? 'duvida' : t === 'melhoria' ? 'melhoria' : 'analise';
 let SUGS = [];
-const souDono = () => !!me && String(me.email || '').toLowerCase() === 'yngredy.guimaraes@allugator.com';
+const souDono = () => isAdm(me);   // só administrador lê e trata as sugestões
 const sugCtx = () => {
   const aba = (document.querySelector('.tab.on') || {}).textContent || '';
   const conv = $('drawer').classList.contains('open') && drawerId ? ` · conversa ${drawerId}` : '';
