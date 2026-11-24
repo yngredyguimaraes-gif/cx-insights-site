@@ -489,8 +489,8 @@
       <div class="filters">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
           <div class="nbar" id="nBoxes"></div>
-          <div class="nbar" id="nView" style="margin-left:auto"><button type="button" class="nb on" data-v="lista">Lista</button><button type="button" class="nb" data-v="quadro">Quadro de Desenvolvimento</button></div>
-          <button class="btn" id="nNew" type="button" style="width:auto;margin:0;padding:9px 18px">Escrever anotação</button>
+          <div class="nbar" id="nView" style="margin-left:auto"><button type="button" class="nb on" data-v="lista">Feedbacks</button><button type="button" class="nb" data-v="quadro">Quadro de Desenvolvimento</button></div>
+          <button class="btn" id="nNew" type="button" style="width:auto;margin:0;padding:9px 18px">Escrever feedback</button>
         </div>
         <div id="nCompWrap" class="hidden"></div>
         <div class="ncards" id="nCards"></div>
@@ -500,7 +500,7 @@
         </div>
       </div>
       <div class="vcard" id="nList" style="margin-top:12px"></div>
-      <p class="note" style="margin-top:12px">Anotações são para aprendizado e conversa entre as pessoas. Não escreva dados pessoais de clientes (CPF, telefone, endereço).</p>
+      <p class="note" style="margin-top:12px">Feedbacks são para aprendizado e conversa entre as pessoas. Não escreva dados pessoais de clientes (CPF, telefone, endereço).</p>
     </div>
 
     <!-- aba sugestões recebidas (só o dono do site) -->
@@ -1333,7 +1333,7 @@ function renderNotes() {
   const pages = Math.max(1, Math.ceil(S0.length / NPP)); if (npage >= pages) npage = pages - 1;
   const S = S0.slice(npage * NPP, (npage + 1) * NPP);
   let h = '';
-  if (!S.length) h = `<div class="vempty">${nbox === 'rec' ? 'Quando alguém enviar uma anotação para você, ela aparece aqui.' : nbox === 'conc' ? 'Quando você concluir um ponto de atenção, um elogio ou uma dúvida, ele aparece aqui.' : nbox === 'env' ? 'Você ainda não enviou anotações.' : nbox === 'ras' ? 'Seus rascunhos privados aparecem aqui. Só você vê.' : 'Nada por aqui.'} Use "Escrever anotação" ou abra uma conversa para anotar um trecho.</div>`;
+  if (!S.length) h = `<div class="vempty">${nbox === 'rec' ? 'Quando alguém enviar um feedback para você, ele aparece aqui.' : nbox === 'conc' ? 'Quando você concluir um feedback, ele aparece aqui.' : nbox === 'env' ? 'Você ainda não enviou feedbacks.' : nbox === 'ras' ? 'Seus rascunhos privados aparecem aqui. Só você vê.' : 'Nada por aqui.'} ${isLid(actor()) ? 'Use "Escrever feedback" ou abra uma conversa para anotar um trecho.' : 'Abra uma conversa para anotar um trecho.'}</div>`;
   else if (ngrp === 'tipo') h = TIPOS.map(([k, l]) => { const G = S.filter(n => n.tipo === k); return G.length ? `<div class="ngroup"><span class="tp ${k}">${l} · ${G.length}</span>${k === 'melhoria' ? ' <span class="when" style="font-size:12px;color:var(--muted)">para focar</span>' : ''}${G.map(n => noteItem(n, nbox)).join('')}</div>` : ''; }).join('');
   else {
     const P = new Map();
@@ -1506,7 +1506,7 @@ function renderBell() {
   const L = recReal().sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em)), novas = L.filter(n => !n.lida_em).length;
   box.innerHTML = `<div class="bphead"><span>Notificações${novas ? ` · ${novas} nova${novas > 1 ? 's' : ''}` : ''}</span>${novas ? '<button class="lnk" type="button" data-all="1">Marcar tudo como lida</button>' : ''}</div>` +
     (L.length ? L.slice(0, 8).map(n => `<button class="bpit${n.lida_em ? '' : ' novo'}" type="button" data-nid="${n.id}"><div class="nav">${avatarHtml(n.de_id, pname(n.de_id))}</div><div style="flex:1;min-width:0"><div class="t"><b>${esc(pname(n.de_id))}</b> ${n.resposta_a ? 'respondeu a uma anotação' : `enviou ${/^[aeiou]/i.test(TIPO_L[n.tipo]) ? 'uma' : 'um'} <b>${esc(TIPO_L[n.tipo].toLowerCase())}</b>`}: ${esc(n.texto)}</div><div class="w">${hora(new Date(n.criado_em))}${n.lida_em ? '' : ' · nova'}</div></div></button>`).join('')
-      : '<div class="bpempty">Você não tem notificações por enquanto. Quando alguém enviar uma anotação para você, ela aparece aqui.</div>') +
+      : '<div class="bpempty">Você não tem notificações por enquanto. Quando alguém enviar um feedback para você, ele aparece aqui.</div>') +
     `<div class="bpfoot"><button class="lnk" type="button" data-todas="1">Ver todas em Desenvolvimento</button></div>`;
 }
 function bellOpen(on) {
