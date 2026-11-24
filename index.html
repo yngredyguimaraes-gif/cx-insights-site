@@ -803,7 +803,7 @@ function openDrawer(c, fila) {
   renderDrawerNav(c); $('dBody').scrollTop = 0;
 }
 let drawerId = null;
-const INTERCOM_APP = '';   // ID do workspace da Allu no Intercom (o código depois de /inbox/ no endereço do Intercom)
+const INTERCOM_APP = 'ky1co8zo';   // ID do workspace da Allu no Intercom (o código depois de /inbox/ no endereço do Intercom)
 const intercomUrl = id => INTERCOM_APP ? `https://app.intercom.com/a/inbox/${INTERCOM_APP}/inbox/conversation/${encodeURIComponent(id)}` : '';
 const cod = n => 'AN-' + String(n.codigo || 0).padStart(4, '0');
 const hora = d => d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -1095,7 +1095,7 @@ document.addEventListener('focusin', e => { const el = e.target.closest && e.tar
 document.addEventListener('focusout', () => { tip.style.display = 'none'; });
 
 /* ---------- 8) DESENVOLVIMENTO: anotações entre atendentes e liderança ---------- */
-const TIPOS = [['melhoria', 'Ponto de melhoria'], ['analise', 'Análise'], ['elogio', 'Elogio'], ['duvida', 'Dúvida']];
+const TIPOS = [['melhoria', '💡 Ponto de melhoria'], ['analise', '⚠️ Ponto de atenção'], ['elogio', '👏 Elogio'], ['duvida', '❓ Dúvida']];
 const TIPO_L = Object.fromEntries(TIPOS);
 const STATUS = [['para_trabalhar', 'Para trabalhar'], ['trabalhando', 'Trabalhando'], ['evolui', 'Evoluí']];
 const STATUS_L = Object.fromEntries(STATUS);
@@ -1263,7 +1263,7 @@ function composerHtml(p, comConversa) {
     ${comConversa ? `<div><label for="${p}Conv">Conversa (opcional)</label><input id="${p}Conv" placeholder="Protocolo da conversa" inputmode="numeric"></div>` : ''}
   </div><div id="${p}Quote"></div>
   <label for="${p}Txt">Anotação</label>
-  <textarea id="${p}Txt" rows="3" maxlength="4000" placeholder="Escreva a sua análise ou o ponto que quer discutir"></textarea>
+  <textarea id="${p}Txt" rows="3" maxlength="4000" placeholder="Escreva o ponto que quer destacar ou discutir"></textarea>
   <div class="alert" id="${p}Msg" role="status"></div>
   <button class="btn" id="${p}Send" type="button" style="width:auto;margin-top:10px;padding:9px 18px"></button></div>`;
 }
