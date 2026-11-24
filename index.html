@@ -141,7 +141,7 @@
   .nmeta .to{color:var(--muted);font-size:12px}
   .nmeta .to b{color:var(--ink);font-weight:600}
   .ntxt{margin:4px 0;font-size:14px;white-space:pre-wrap;word-break:break-word}
-  .nquote{border-left:2px solid var(--line);padding:2px 10px;margin:6px 0;font-size:12px;color:var(--muted);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+  .nquote{background:#fffbea;border:1px solid #f1e2a6;border-left:4px solid #f0b400;border-radius:10px;padding:6px 10px;margin:6px 0;font-size:12px;color:var(--ink);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
   .nquote.open{display:block;-webkit-line-clamp:unset}
   .nact{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
   .nact a{color:var(--good);cursor:pointer;text-decoration:underline}
@@ -281,6 +281,21 @@
   .msg.c{background:var(--bg);border:1px solid var(--line)}
   .msg.a{background:var(--dark);color:#fff;margin-left:auto}
   .msg small{display:block;opacity:.7;font-size:11px;margin-top:3px}
+
+  /* notas estilo Notion */
+  .msg.anot{box-shadow:0 0 0 2px rgba(240,180,0,.55)}
+  .mnote{max-width:80%;margin:-3px 0 10px 22px;background:#fffbea;border:1px solid #f1e2a6;border-left:4px solid #f0b400;border-radius:10px;padding:7px 10px;font-size:12.5px;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .mnote.a{margin-left:auto;margin-right:22px}
+  .mnote .mh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-bottom:3px}
+  .mnote .mh b{color:var(--ink)}
+  .mnote .mt{white-space:pre-wrap;word-break:break-word}
+  .cod{font-family:ui-monospace,Consolas,monospace;font-size:11px;background:rgba(35,36,42,.08);border-radius:6px;padding:1px 6px;color:var(--muted)}
+  .qbub{background:#fffbea;border:1px solid #f1e2a6;border-left:4px solid #f0b400;border-radius:10px;padding:8px 10px;margin:6px 0;font-size:12.5px}
+  .qbub .qh{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;font-weight:600;color:#7a5600;margin-bottom:3px}
+  .qbub .qh a{font-weight:400;color:var(--ink);cursor:pointer;text-decoration:underline}
+  .qbub .qt{white-space:pre-wrap;word-break:break-word;color:var(--ink)}
+  .icbtn{display:inline-block;text-decoration:none;font-size:13px;padding:7px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink);background:var(--card);white-space:nowrap}
+  .icbtn:hover{background:var(--bg)}
 
   /* analysis */
   .chart{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:16px}
@@ -504,7 +519,7 @@
 
 <!-- detalhe da conversa -->
 <aside id="drawer" aria-label="Detalhe da conversa">
-  <div class="d-head"><div><strong id="dTitle"></strong><div class="pill" id="dSub" style="margin-top:6px;display:inline-block"></div></div><button class="btn ghost" id="dClose">Fechar</button></div>
+  <div class="d-head"><div><strong id="dTitle"></strong><div class="pill" id="dSub" style="margin-top:6px;display:inline-block"></div></div><div style="display:flex;gap:8px;align-items:center"><a id="dIc" class="icbtn hidden" target="_blank" rel="noopener noreferrer">Abrir no Intercom ↗</a><button class="btn ghost" id="dClose">Fechar</button></div></div>
   <div id="dNav" class="dnav"></div>
   <div class="d-body" id="dBody"></div>
 </aside>
@@ -653,6 +668,8 @@ function applyView() {
   $('viewBar').classList.toggle('hidden', !sim);
   $('viewBar').textContent = sim && simSeesAll() ? `Você está vendo a tela como ${viewAs} (liderança): o time todo, como essa pessoa veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : '';
   $('tabAcc').classList.toggle('hidden', me.perfil !== 'lider' || sim);
+  $('tabSug').classList.toggle('hidden', !souDono() || sim);
+  if (sim && !$('tab-sug').classList.contains('hidden')) { document.querySelector('.tab[data-tab=sem]').click(); }
   if (sim && !$('tab-acc').classList.contains('hidden')) { document.querySelector('.tab[data-tab=sem]').click(); }
   nbox = 'rec'; nft = null; $('nCompWrap').classList.add('hidden'); $('nCompWrap').innerHTML = '';
   if (NPEOPLE) renderNotes();
@@ -779,23 +796,45 @@ function openDrawer(c, fila) {
     <p class="note" style="margin-top:12px">Telefones, CPF, CNPJ, CEP e e-mails foram ocultados nas mensagens.</p>
     <div id="dNotes" class="dnotes"></div>`;
   $('drawer').classList.add('open');
-  drawerQuote = '';
+  drawerQuote = ''; MSGS = null;
+  const ic = $('dIc'), icu = intercomUrl(c.id); ic.classList.toggle('hidden', !icu); if (icu) ic.href = icu;
   loadMessages(c);
   drawerId = c.id; renderDrawerNotes(); dmOpen = false; renderDrawerMarks(c);
   renderDrawerNav(c); $('dBody').scrollTop = 0;
 }
 let drawerId = null;
+const INTERCOM_APP = '';   // ID do workspace da Allu no Intercom (o código depois de /inbox/ no endereço do Intercom)
+const intercomUrl = id => INTERCOM_APP ? `https://app.intercom.com/a/inbox/${INTERCOM_APP}/inbox/conversation/${encodeURIComponent(id)}` : '';
+const cod = n => 'AN-' + String(n.codigo || 0).padStart(4, '0');
 const hora = d => d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+let MSGS = null, MSGSIG = '';
+const notasDoTrecho = (cid, q) => NOTES.filter(n => n.conversation_id === cid && !n.resposta_a && n.trecho === q && (!n.privado || n.de_id === actor().id));
 function renderMessages(list, c) {
   const box = $('transcr'); if (!box) return;
+  MSGS = { list, c };
   if (!list.length) { box.textContent = 'Nenhuma mensagem encontrada para esta conversa.'; return; }
   box.className = '';
+  let sig = '';
   box.innerHTML = list.map(m => {
     const cls = m.remetente === 'ATENDENTE' ? 'a' : m.remetente === 'CLIENTE' ? 'c' : 'i';
     const quem = m.remetente === 'ATENDENTE' ? (m.nome || c.agent) : m.remetente === 'CLIENTE' ? 'Cliente' : 'IA';
     const pre = m.tipo === 'audio_transcription' ? '[áudio transcrito] ' : m.tipo === 'attachment_interpretation' ? '[anexo] ' : '';
-    return `<div class="msg ${cls}">${esc(pre + (m.texto || ''))}<small>${esc(quem)} · ${hora(m.enviado_em ? new Date(m.enviado_em) : null)}</small><button class="qbtn" type="button" data-q="${esc((quem + ': ' + pre + (m.texto || '')).slice(0, 600))}">Anotar trecho</button></div>`;
+    const q = (quem + ': ' + pre + (m.texto || '')).slice(0, 600), ns = notasDoTrecho(c.id, q);
+    ns.forEach(n => { sig += n.id + n.texto; });
+    return `<div class="msg ${cls}${ns.length ? ' anot' : ''}">${esc(pre + (m.texto || ''))}<small>${esc(quem)} · ${hora(m.enviado_em ? new Date(m.enviado_em) : null)}</small><button class="qbtn" type="button" data-q="${esc(q)}">Anotar trecho</button></div>` +
+      ns.map(n => `<div class="mnote ${cls === 'a' ? 'a' : ''}"><div class="mh"><b>${esc(n.de_id === actor().id && !simulando() ? 'Você' : pname(n.de_id))}</b><span>→ ${esc(n.para_id === actor().id && !simulando() ? 'você' : pname(n.para_id))}</span><span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="cod">${cod(n)}</span><span>${hora(new Date(n.criado_em))}</span></div><div class="mt">${esc(n.texto)}</div></div>`).join('');
   }).join('');
+  MSGSIG = sig;
+}
+function repaintMsgs() {
+  if (!MSGS || MSGS.c.id !== drawerId || !$('transcr')) return;
+  let sig = '';
+  MSGS.list.forEach(m => {
+    const quem = m.remetente === 'ATENDENTE' ? (m.nome || MSGS.c.agent) : m.remetente === 'CLIENTE' ? 'Cliente' : 'IA';
+    const pre = m.tipo === 'audio_transcription' ? '[áudio transcrito] ' : m.tipo === 'attachment_interpretation' ? '[anexo] ' : '';
+    notasDoTrecho(MSGS.c.id, (quem + ': ' + pre + (m.texto || '')).slice(0, 600)).forEach(n => { sig += n.id + n.texto; });
+  });
+  if (sig !== MSGSIG) renderMessages(MSGS.list, MSGS.c);
 }
 async function loadMessages(c) {
   drawerId = c.id;
@@ -1110,7 +1149,7 @@ function keepFocus(box, fn) {
 function repItem(r) {
   const meu = r.de_id === actor().id && !simulando(), novo = !simulando() && r.para_id === me.id && !r.lida_em;
   return `<div class="nrep${novo ? ' novo' : ''}" data-rep="${r.id}"><div class="nav">${avatarHtml(r.de_id, pname(r.de_id))}</div><div style="flex:1;min-width:0">
-    <div class="nmeta"><b>${esc(meu ? 'Você' : pname(r.de_id))}</b><span class="when">${hora(new Date(r.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}</div>
+    <div class="nmeta"><b>${esc(meu ? 'Você' : pname(r.de_id))}</b><span class="cod">${cod(r)}</span><span class="when">${hora(new Date(r.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}</div>
     <div class="ntxt">${esc(r.texto)}</div>${meu ? `<div class="nact"><button class="lnk" data-del="${r.id}" type="button">Excluir resposta</button></div>` : ''}</div></div>`;
 }
 function threadHtml(n) {
@@ -1137,7 +1176,7 @@ function noteItem(n, box) {
   const novaR = !simulando() && repliesOf(n.id).some(r => r.para_id === me.id && !r.lida_em);
   const resp = podeResp(n) && !RDRAFT.has(n.id) ? `<button class="lnk rbtn" data-reply="${n.id}" type="button">Responder</button>` : '';
   return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${avatarHtml(n.de_id, pname(n.de_id))}</div><div style="flex:1;min-width:0">
-    <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}${novaR ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova resposta</span>' : ''}</div>
+    <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="cod" title="Código desta anotação">${cod(n)}</span><span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}${novaR ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova resposta</span>' : ''}</div>
     ${n.trecho ? `<div class="nquote" title="Clique para ver o trecho inteiro">${esc(n.trecho)}</div>` : ''}<div class="ntxt">${esc(n.texto)}</div>
     <div class="nact">${resp}${conv}${status}${apagar}</div>${threadHtml(n)}</div></div>`;
 }
@@ -1157,7 +1196,7 @@ function renderKanban() {
   const col = ([k, l]) => {
     const C = L.filter(n => (n.status || 'para_trabalhar') === k), i = KB_COLS.findIndex(c => c[0] === k);
     return `<div class="kcol" data-k="${k}"><div class="kch"><span>${l}</span><span>${C.length}</span></div>${k === 'trabalhando' && C.length > KB_LIM ? `<div class="kwip">Mais de ${KB_LIM} ao mesmo tempo. Foque em poucos.</div>` : ''}` +
-      C.map(n => `<div class="kcard" ${meu ? 'draggable="true"' : ''} data-id="${n.id}"><div class="nmeta"><b>${esc(pname(n.de_id))}</b><span class="when">${hora(new Date(n.criado_em))}</span></div>${n.trecho ? `<div class="nquote" title="Clique para ver o trecho inteiro">${esc(n.trecho)}</div>` : ''}<p>${esc(n.texto)}</p>
+      C.map(n => `<div class="kcard" ${meu ? 'draggable="true"' : ''} data-id="${n.id}"><div class="nmeta"><b>${esc(pname(n.de_id))}</b><span class="cod">${cod(n)}</span><span class="when">${hora(new Date(n.criado_em))}</span></div>${n.trecho ? `<div class="nquote" title="Clique para ver o trecho inteiro">${esc(n.trecho)}</div>` : ''}<p>${esc(n.texto)}</p>
         <div class="nact">${!n.conversation_id ? '<span>Sem conversa ligada</span>' : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">Abrir conversa …${esc(n.conversation_id.slice(-8))}</a>` : `<span>Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`}</div>
         ${meu ? `<div class="kmv">${i > 0 ? `<button data-kbm="${n.id}" data-to="${KB_COLS[i - 1][0]}" type="button">← Voltar</button>` : ''}${i < 2 ? `<button data-kbm="${n.id}" data-to="${KB_COLS[i + 1][0]}" type="button">${i === 0 ? 'Começar' : 'Evoluí'} →</button>` : ''}</div>` : ''}</div>`).join('') +
       (C.length ? '' : `<div class="note" style="padding:8px 4px">${meu ? 'Arraste um cartão para cá.' : 'Nenhum ponto aqui.'}</div>`) + '</div>';
@@ -1263,7 +1302,7 @@ $('nNew').onclick = () => {
 
 /* anotações dentro da conversa */
 let drawerQuote = '';
-function renderQuote(p, t) { $(p + 'Quote').innerHTML = t ? `<span class="qchip">Trecho: ${esc(t.slice(0, 80))}${t.length > 80 ? '…' : ''}<a data-rmq="1">remover</a></span>` : ''; }
+function renderQuote(p, t) { $(p + 'Quote').innerHTML = t ? `<div class="qbub"><div class="qh"><span>Nota sobre este trecho</span><a data-rmq="1">remover</a></div><div class="qt">${esc(t.slice(0, 240))}${t.length > 240 ? '…' : ''}</div></div>` : ''; }
 function renderDrawerNotes(force) {
   const box = $('dNotes'); if (!box || !me || !drawerId) return;
   const cc = DATA.find(x => x.id === drawerId); if (cc && $('dNav')) setTimeout(() => renderDrawerNav(cc), 0);
@@ -1272,6 +1311,7 @@ function renderDrawerNotes(force) {
   const hl = `<div class="vsecs" style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em">Anotações desta conversa (${L.length})</div>` +
     (L.length ? L.map(n => noteItem(n, isTime(n) ? 'time' : n.de_id === actor().id ? 'env' : 'rec')).join('') : '<p class="note">Ainda não há anotações aqui. Use "Anotar trecho" nas mensagens para citar uma parte da conversa.</p>');
   keepFocus($('dNotesList'), () => { $('dNotesList').innerHTML = hl; });
+  repaintMsgs();
   /* o campo de escrever só é montado de novo se estiver vazio, para nunca apagar o que a pessoa está digitando */
   if (force && $('ndTxt') && !$('ndTxt').value.trim()) $('dNotesComp').innerHTML = '';
   if (!$('ndTxt')) {
