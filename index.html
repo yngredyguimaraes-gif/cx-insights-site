@@ -1311,6 +1311,10 @@ $('nList').addEventListener('drop', e => { const c = e.target.closest('.kcol'); 
 function renderNotes() {
   if (!me) return;
   const q = nview === 'quadro';
+  /* "Escrever anotação" avulsa: só liderança e administrador, e só na Lista; atendente anota dentro das conversas */
+  const podeEscrever = isLid(actor()) && !q;
+  $('nNew').classList.toggle('hidden', !podeEscrever);
+  if (!podeEscrever) { $('nCompWrap').classList.add('hidden'); $('nCompWrap').innerHTML = ''; }
   document.querySelectorAll('#nView [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === nview));
   ['nBoxes', 'nCards', 'nGrpRow'].forEach(i => $(i).classList.toggle('hidden', q));
   if (q) { $('nPreview').classList.toggle('hidden', !simulando()); if (simulando()) $('nPreview').textContent = ghost() ? 'Agindo como ' + actor().nome + ' (administrador): o que você mover ou enviar sai em nome dela, marcado como feito por você.' : 'Prévia como ' + actor().nome + ': só leitura.'; return renderKanban(); }
