@@ -685,7 +685,7 @@ async function startApp(rows) {
 function applyView() {
   const sim = !!viewAs;
   $('viewBar').classList.toggle('hidden', !sim);
-  $('viewBar').textContent = sim && simSeesAll() ? `Você está vendo a tela como ${viewAs} (liderança): o time todo, como essa pessoa veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : '';
+  $('viewBar').textContent = sim && isAdm(me) ? `Você está agindo como ${viewAs} (administrador). Na aba Desenvolvimento, o que você escrever, responder ou mover sai em nome dela e fica marcado como feito por você. Volte em "Ver como: eu mesmo".` : sim && simSeesAll() ? `Você está vendo a tela como ${viewAs} (liderança): o time todo, como essa pessoa veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : sim ? `Você está vendo a tela como ${viewAs}: só as conversas dela, como ela veria. Isso é só uma simulação da tela; na aba Desenvolvimento nada é enviado. Volte em "Ver como: eu mesmo".` : '';
   $('tabAcc').classList.toggle('hidden', !isLid(me) || sim);
   $('tabSug').classList.toggle('hidden', !souDono() || sim);
   if (sim && !$('tab-sug').classList.contains('hidden')) { document.querySelector('.tab[data-tab=sem]').click(); }
@@ -1131,6 +1131,9 @@ let NOTES = [], NPEOPLE = new Map(), nbox = 'rec', ngrp = 'tipo', nft = null, no
 const simPerson = () => viewAs ? [...NPEOPLE.values()].find(p => p.nome.trim().toLowerCase() === viewAs.trim().toLowerCase()) || null : null;
 const simulando = () => !!viewAs;                 // previa: nada é enviado nem alterado
 const actor = () => simPerson() || me;
+const ghost = () => !!viewAs && isAdm(me);          // administrador agindo como outra pessoa
+const bloq = () => simulando() && !ghost();         // prévia somente leitura (liderança)
+const porAdm = n => n.enviado_por && n.enviado_por !== n.de_id ? `<span class="tp" style="background:rgba(35,36,42,.09);color:#2e2f39" title="Escrito pelo administrador em nome desta pessoa">enviado por ${esc(pname(n.enviado_por))} (admin)</span>` : '';
 const pname = id => { const p = NPEOPLE.get(id); return p ? p.nome : 'alguém'; };
 const ini = n => String(n).trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
@@ -1171,22 +1174,22 @@ TIPO_L.resposta = 'Resposta';
 const RDRAFT = new Map();   // rascunho de resposta por anotação (sobrevive às atualizações automáticas)
 const repliesOf = id => NOTES.filter(r => r.resposta_a === id).sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
 const rootOf = n => n.resposta_a ? NOTES.find(x => x.id === n.resposta_a) || n : n;
-const podeResp = n => !simulando() && !n.privado && !n.resposta_a && (n.de_id === me.id || n.para_id === me.id);
+const podeResp = n => !bloq() && !n.privado && !n.resposta_a && (n.de_id === actor().id || n.para_id === actor().id);
 function keepFocus(box, fn) {
   const af = document.activeElement, k = af && af.classList && af.classList.contains('rptxt') && box.contains(af) ? [af.dataset.rid, af.selectionStart, af.selectionEnd] : null;
   fn();
   if (k) { const t = box.querySelector(`.rptxt[data-rid="${k[0]}"]`); if (t) { t.focus(); try { t.setSelectionRange(k[1], k[2]); } catch (_) {} } }
 }
 function repItem(r) {
-  const meu = r.de_id === actor().id && !simulando(), novo = !simulando() && r.para_id === me.id && !r.lida_em;
+  const meu = (r.de_id === actor().id || isAdm(me)) && !bloq(), novo = !simulando() && r.para_id === me.id && !r.lida_em;
   return `<div class="nrep${novo ? ' novo' : ''}" data-rep="${r.id}"><div class="nav">${avatarHtml(r.de_id, pname(r.de_id))}</div><div style="flex:1;min-width:0">
-    <div class="nmeta"><b>${esc(meu ? 'Você' : pname(r.de_id))}</b><span class="cod">${cod(r)}</span><span class="when">${hora(new Date(r.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}</div>
+    <div class="nmeta"><b>${esc(meu ? 'Você' : pname(r.de_id))}</b><span class="cod">${cod(r)}</span>${porAdm(r)}<span class="when">${hora(new Date(r.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}</div>
     <div class="ntxt">${esc(r.texto)}</div>${meu ? `<div class="nact"><button class="lnk" data-del="${r.id}" type="button">Excluir resposta</button></div>` : ''}</div></div>`;
 }
 function threadHtml(n) {
   const reps = repliesOf(n.id);
   const form = RDRAFT.has(n.id) && podeResp(n)
-    ? `<div class="rform"><textarea class="rptxt" data-rid="${n.id}" rows="2" maxlength="4000" aria-label="Sua resposta para ${esc(pname(n.de_id === me.id ? n.para_id : n.de_id))}" placeholder="Escreva a sua resposta para ${esc(pname(n.de_id === me.id ? n.para_id : n.de_id))}">${esc(RDRAFT.get(n.id))}</textarea><div class="alert" data-rmsg="${n.id}" role="status"></div><div class="nact" style="margin-top:6px"><button class="btn" data-rsend="${n.id}" type="button" style="width:auto;padding:7px 16px">Enviar resposta</button><button class="lnk" data-rcancel="${n.id}" type="button">Cancelar</button></div></div>` : '';
+    ? `<div class="rform"><textarea class="rptxt" data-rid="${n.id}" rows="2" maxlength="4000" aria-label="Sua resposta para ${esc(pname(n.de_id === actor().id ? n.para_id : n.de_id))}" placeholder="Escreva a sua resposta para ${esc(pname(n.de_id === actor().id ? n.para_id : n.de_id))}">${esc(RDRAFT.get(n.id))}</textarea><div class="alert" data-rmsg="${n.id}" role="status"></div><div class="nact" style="margin-top:6px"><button class="btn" data-rsend="${n.id}" type="button" style="width:auto;padding:7px 16px">Enviar resposta</button><button class="lnk" data-rcancel="${n.id}" type="button">Cancelar</button></div></div>` : '';
   return (reps.length ? `<div class="nreps">${reps.map(repItem).join('')}</div>` : '') + form;
 }
 
@@ -1196,21 +1199,21 @@ function noteItem(n, box, noDrawer) {
   const quem = n.privado ? '<b>Rascunho privado</b> <span class="to">só você vê</span>'
     : `<b>${esc(eu(n.de_id) ? 'Você' : pname(n.de_id))}</b> <span class="to">enviado para <b>${esc(eu(n.para_id) ? 'você' : pname(n.para_id))}</b></span>`;
   const novo = box === 'rec' && !n.lida_em;
-  const meuStatus = n.tipo === 'melhoria' && n.para_id === actor().id && !simulando();
+  const meuStatus = n.tipo === 'melhoria' && n.para_id === actor().id && !bloq();
   const status = meuStatus
     ? `<select data-st="${n.id}" aria-label="Situação do ponto de melhoria">${STATUS.map(([k, l]) => `<option value="${k}" ${n.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`
     : (n.tipo === 'melhoria' && n.status ? `<span class="tp analise">${STATUS_L[n.status]}</span>` : '');
   const conv = noDrawer ? (n.trecho ? `<a data-goto="${n.id}">Ver no texto ↑</a>` : '') : !n.conversation_id ? '<span>Sem conversa ligada</span>'
     : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">${n.trecho ? 'Abrir no trecho' : 'Abrir conversa'} …${esc(n.conversation_id.slice(-8))}</a>`
     : `<span title="Essa conversa não está mais no site, ou você não tem acesso a ela">Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`;
-  const podeFim = n.tipo !== 'melhoria' && !n.privado && !n.resposta_a && (n.para_id === actor().id || n.de_id === actor().id) && !simulando();
+  const podeFim = n.tipo !== 'melhoria' && !n.privado && !n.resposta_a && (n.para_id === actor().id || n.de_id === actor().id || isAdm(me)) && !bloq();
   const concl = feito(n) ? `<span class="tp elogio">✓ Concluído ${hora(new Date(n.concluida_em))}</span>` : '';
   const fim = podeFim ? (feito(n) ? `<button class="lnk" data-undo="${n.id}" type="button">Reabrir</button>` : `<button class="donebtn" data-done="${n.id}" type="button">✓ Concluir</button>`) : '';
-  const apagar = n.de_id === actor().id && !simulando() ? `<button class="lnk" data-del="${n.id}" type="button">${n.privado ? 'Apagar rascunho' : 'Excluir'}</button>` : '';
+  const apagar = (n.de_id === actor().id || isAdm(me)) && !bloq() ? `<button class="lnk" data-del="${n.id}" type="button">${n.privado ? 'Apagar rascunho' : 'Excluir'}</button>` : '';
   const novaR = !simulando() && repliesOf(n.id).some(r => r.para_id === me.id && !r.lida_em);
   const resp = podeResp(n) && !RDRAFT.has(n.id) ? `<button class="lnk rbtn" data-reply="${n.id}" type="button">Responder</button>` : '';
   return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${avatarHtml(n.de_id, pname(n.de_id))}</div><div style="flex:1;min-width:0">
-    <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="cod" title="Código desta anotação">${cod(n)}</span><span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}${novaR ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova resposta</span>' : ''}</div>
+    <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="cod" title="Código desta anotação">${cod(n)}</span>${porAdm(n)}<span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}${novaR ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova resposta</span>' : ''}</div>
     ${n.trecho ? `<div class="nquote" title="Clique para ver o trecho inteiro">${esc(n.trecho)}</div>` : ''}<div class="ntxt">${esc(n.texto)}</div>
     <div class="nact">${resp}${conv}${status}${concl}${fim}${apagar}</div>${threadHtml(n)}</div></div>`;
 }
@@ -1223,7 +1226,7 @@ function renderKanban() {
   const a = actor(), ids = [...new Set(kbPts().map(n => n.para_id))];
   const people = ids.map(id => ({ id, nome: pname(id) })).sort((x, y) => (y.id === a.id) - (x.id === a.id) || x.nome.localeCompare(y.nome, 'pt-BR'));
   if (!people.some(p => p.id === kbWho)) kbWho = (people[0] || {}).id || null;
-  const L = kbPts().filter(n => n.para_id === kbWho), meu = !simulando() && kbWho === me.id;
+  const L = kbPts().filter(n => n.para_id === kbWho), meu = !bloq() && (kbWho === actor().id || isAdm(me));
   const ev = L.filter(n => n.status === 'evolui').length;
   if (!L.length) { $('nList').innerHTML = '<div class="vempty">Ainda não há pontos de melhoria para acompanhar. Quando a liderança enviar um ponto de melhoria, ele aparece aqui para você organizar.</div>'; return; }
   const sel = people.length > 1 || !meu ? `<label for="kbWho" style="font-size:13px;color:var(--muted)">Quadro de</label> <select id="kbWho" style="width:auto">${people.map(p => `<option value="${p.id}" ${p.id === kbWho ? 'selected' : ''}>${esc(p.id === me.id && !simulando() ? p.nome + ' (você)' : p.nome)}</option>`).join('')}</select>` : '<b style="font-size:14px">Seus pontos de melhoria</b>';
@@ -1240,8 +1243,8 @@ function renderKanban() {
     <p class="note" style="margin-top:12px">${meu ? 'Arraste os cartões ou use os botões para mostrar em que etapa você está.' : 'Só a pessoa dona do quadro move os cartões. Para conversar sobre um ponto, use a aba Lista e o botão Responder.'}</p>`;
 }
 async function kbMove(id, to) {
-  if (simulando()) return;
-  const n = NOTES.find(x => x.id === id); if (!n || n.para_id !== me.id || (n.status || 'para_trabalhar') === to) return;
+  if (bloq()) return;
+  const n = NOTES.find(x => x.id === id); if (!n || (n.para_id !== actor().id && !isAdm(me)) || (n.status || 'para_trabalhar') === to) return;
   const { error } = await supa.from('anotacoes').update({ status: to }).eq('id', id);
   if (error) { alert('Não foi possível mover o cartão.'); return; }
   n.status = to; renderNotes(); renderDrawerNotes();
@@ -1260,11 +1263,11 @@ function renderNotes() {
   const q = nview === 'quadro';
   document.querySelectorAll('#nView [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === nview));
   ['nBoxes', 'nCards', 'nGrpRow'].forEach(i => $(i).classList.toggle('hidden', q));
-  if (q) { $('nPreview').classList.toggle('hidden', !simulando()); if (simulando()) $('nPreview').textContent = 'Prévia como ' + actor().nome + ': só leitura.'; return renderKanban(); }
+  if (q) { $('nPreview').classList.toggle('hidden', !simulando()); if (simulando()) $('nPreview').textContent = ghost() ? 'Agindo como ' + actor().nome + ' (administrador): o que você mover ou enviar sai em nome dela, marcado como feito por você.' : 'Prévia como ' + actor().nome + ': só leitura.'; return renderKanban(); }
   if (nbox === 'time' && (simulando() || !notesOf('time').length)) nbox = 'rec';
   const pv = $('nPreview'), sp = simPerson();
   pv.classList.toggle('hidden', !simulando());
-  pv.textContent = !simulando() ? '' : sp ? `Prévia como ${sp.nome}: a lista de destinos é a dela e nada é enviado. Aparecem só as anotações dela que você tem permissão de ver (rascunhos privados nunca aparecem).` : `Não encontrei ${viewAs} na lista de acessos, então não dá para simular esta aba.`;
+  pv.textContent = !simulando() ? '' : ghost() ? `Agindo como ${actor().nome} (administrador): você vê as anotações dela, inclusive rascunhos. O que você escrever ou responder sai em nome dela e fica marcado como enviado por você.` : sp ? `Prévia como ${sp.nome}: a lista de destinos é a dela e nada é enviado. Aparecem só as anotações dela que você tem permissão de ver (rascunhos privados nunca aparecem).` : `Não encontrei ${viewAs} na lista de acessos, então não dá para simular esta aba.`;
   const boxes = [['rec', 'Recebidas'], ['env', 'Enviadas'], ['ras', 'Rascunhos']];
   if (!simulando() && notesOf('time').length) boxes.push(['time', 'Do time']);
   boxes.push(['conc', 'Concluídos']);
@@ -1308,13 +1311,13 @@ function composerHtml(p, comConversa) {
 function prepComposer(p, getCtx) {
   const dest = $(p + 'Dest');
   dest.innerHTML = recipients().map(r => `<option value="${r.id}">${esc(r.nome)}${r.id === actor().lider_direto_id ? ' (liderança direta)' : ''}</option>`).join('') + '<option value="priv">Só para mim (rascunho privado)</option>';
-  const lbl = () => { $(p + 'Send').textContent = simulando() ? 'Envio desativado na prévia' : dest.value === 'priv' ? 'Salvar rascunho' : 'Enviar para ' + (NPEOPLE.get(dest.value) || {}).nome; $(p + 'Send').disabled = simulando(); };
+  const lbl = () => { $(p + 'Send').textContent = bloq() ? 'Envio desativado na prévia' : dest.value === 'priv' ? 'Salvar rascunho' : 'Enviar para ' + (NPEOPLE.get(dest.value) || {}).nome + (ghost() ? ' (como ' + actor().nome + ')' : ''); $(p + 'Send').disabled = bloq(); };
   dest.onchange = lbl; lbl();
   const aviso = 'Você está no modo "Ver como": o envio fica desativado para não sair nada em nome de outra pessoa. Para escrever de verdade, volte em "Ver como: eu mesmo", no topo da página.';
-  if (simulando()) msg($(p + 'Msg'), 'ok', aviso);
-  $(p + 'Txt').oninput = () => { if (!simulando()) msg($(p + 'Msg'), '', ''); };
+  if (bloq()) msg($(p + 'Msg'), 'ok', aviso);
+  $(p + 'Txt').oninput = () => { if (!bloq()) msg($(p + 'Msg'), '', ''); };
   $(p + 'Send').onclick = async () => {
-    if (simulando()) return;
+    if (bloq()) return;
     const ctx = getCtx(), txt = $(p + 'Txt').value.trim(), priv = dest.value === 'priv', tipo = $(p + 'Tipo').value;
     if (!txt) return msg($(p + 'Msg'), 'err', 'Escreva a anotação antes de enviar.');
     let conv = ctx.conv || null;
@@ -1323,7 +1326,7 @@ function prepComposer(p, getCtx) {
       if (conv && !DATA.some(c => c.id === conv)) return msg($(p + 'Msg'), 'err', 'Não achei essa conversa entre as que você pode ver. Confira o protocolo.');
     }
     $(p + 'Send').disabled = true;
-    const { data, error } = await supa.from('anotacoes').insert({ de_id: me.id, para_id: priv ? me.id : dest.value, tipo, texto: txt, conversation_id: conv, trecho: ctx.quote || null, privado: priv, status: tipo === 'melhoria' ? 'para_trabalhar' : null }).select().single();
+    const { data, error } = await supa.from('anotacoes').insert({ de_id: actor().id, para_id: priv ? actor().id : dest.value, tipo, texto: txt, conversation_id: conv, trecho: ctx.quote || null, privado: priv, status: tipo === 'melhoria' ? 'para_trabalhar' : null }).select().single();
     $(p + 'Send').disabled = false;
     if (error) return msg($(p + 'Msg'), 'err', 'Não foi possível enviar. ' + error.message);
     NOTES.unshift(data); $(p + 'Txt').value = '';
@@ -1370,7 +1373,7 @@ async function noteClick(e) {
   const qt = e.target.closest('.nquote'); if (qt) { qt.classList.toggle('open'); return; }
   const a = e.target.closest('[data-conv]');
   if (a) { const c = DATA.find(x => x.id === a.dataset.conv); const nid = (a.closest('[data-id]') || {}).dataset; if (c) { pendGoto = nid && nid.id; openDrawer(c); } else alert('Essa conversa não está entre as que você pode ver agora.'); return; }
-  if (simulando()) return;
+  if (bloq()) return;
   const host = e.target.closest('#dBody') || $('nList');
   const rb = e.target.closest('[data-reply]');
   if (rb) {
@@ -1383,7 +1386,7 @@ async function noteClick(e) {
   if (rc) { RDRAFT.delete(rc.dataset.rcancel); renderNotes(); renderDrawerNotes(); return; }
   const dn = e.target.closest('[data-done],[data-undo]');
   if (dn) {
-    const id = dn.dataset.done || dn.dataset.undo, n = NOTES.find(x => x.id === id); if (!n || (n.para_id !== me.id && n.de_id !== me.id)) return;
+    const id = dn.dataset.done || dn.dataset.undo, n = NOTES.find(x => x.id === id); if (!n || (n.para_id !== actor().id && n.de_id !== actor().id && !isAdm(me))) return;
     const v = dn.dataset.done ? new Date().toISOString() : null;
     const { error } = await supa.from('anotacoes').update({ concluida_em: v }).eq('id', id);
     if (error) { alert('Não foi possível atualizar.'); return; }
@@ -1417,13 +1420,13 @@ async function noteClick(e) {
   }
 }
 async function sendReply(id) {
-  const root = NOTES.find(x => x.id === id); if (!root || simulando() || !podeResp(root)) return;
+  const root = NOTES.find(x => x.id === id); if (!root || bloq() || !podeResp(root)) return;
   const txt = (RDRAFT.get(id) || '').trim();
   const say = (k, t) => document.querySelectorAll(`[data-rmsg="${id}"]`).forEach(m => msg(m, k, t));
   if (!txt) return say('err', 'Escreva a resposta antes de enviar.');
   const btns = [...document.querySelectorAll(`[data-rsend="${id}"]`)]; btns.forEach(b => { b.disabled = true; });
-  const para = root.de_id === me.id ? root.para_id : root.de_id;
-  const { data, error } = await supa.from('anotacoes').insert({ de_id: me.id, para_id: para, tipo: 'resposta', texto: txt, resposta_a: id, privado: false }).select().single();
+  const para = root.de_id === actor().id ? root.para_id : root.de_id;
+  const { data, error } = await supa.from('anotacoes').insert({ de_id: actor().id, para_id: para, tipo: 'resposta', texto: txt, resposta_a: id, privado: false }).select().single();
   btns.forEach(b => { b.disabled = false; });
   if (error) return say('err', 'Não foi possível enviar. ' + error.message);
   NOTES.push(data); RDRAFT.delete(id); updateBell(); renderNotes(); renderDrawerNotes();
@@ -1431,7 +1434,7 @@ async function sendReply(id) {
 const rdraft = e => { const t = e.target.closest && e.target.closest('.rptxt'); if (t) RDRAFT.set(t.dataset.rid, t.value); };
 $('nList').addEventListener('input', rdraft); $('dBody').addEventListener('input', rdraft);
 async function statusChange(e) {
-  const s = e.target.closest('[data-st]'); if (!s || simulando()) return;
+  const s = e.target.closest('[data-st]'); if (!s || bloq()) return;
   const { error } = await supa.from('anotacoes').update({ status: s.value }).eq('id', s.dataset.st);
   if (!error) { const n = NOTES.find(x => x.id === s.dataset.st); if (n) n.status = s.value; renderNotes(); renderDrawerNotes(); }
 }
