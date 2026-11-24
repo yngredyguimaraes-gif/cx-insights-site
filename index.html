@@ -629,7 +629,7 @@ supa.auth.onAuthStateChange((event, session) => {
 });
 function showLogin() {
   if (me) { KEEP.set('tab', null); KEEP.set('conv', null); }   // saiu da conta: o F5 não deve reabrir nada
-  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); MYMARK = new Map(); GTAGS = new Map(); SUGS = []; sugOpen(false); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
+  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); MYMARK = new Map(); GTAGS = new Map(); SUGS = []; CARDS = []; CARDSIG = ''; sugOpen(false); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
   $('app').classList.add('hidden'); $('login').classList.remove('hidden');
 }
 async function bootstrap(session) {
@@ -690,7 +690,7 @@ async function startApp(rows) {
   buildViewAs();
   $('viewAs').classList.toggle('hidden', !isLid(me)); $('viewAs').value = '';
   applyView();
-  loadNotes();
+  loadNotes(); loadCards();
   loadTeamWeekly();
   loadReviews(); loadMarks(); $('tabSug').classList.toggle('hidden', !souDono()); loadSugs();
   if (isLid(me)) loadPeople();
@@ -946,7 +946,7 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   ['sem', 'conv', 'ana', 'dev', 'acc', 'sug'].forEach(k => $('tab-' + k).classList.toggle('hidden', t.dataset.tab !== k || ($('loading') && !$('loading').classList.contains('hidden'))));
   closeDrawer(); KEEP.set('tab', t.dataset.tab);
   if (t.dataset.tab === 'ana') renderDados();
-  if (t.dataset.tab === 'dev') renderNotes();
+  if (t.dataset.tab === 'dev') { renderNotes(); loadCards(); }
   if (t.dataset.tab === 'sem') renderSemana();
   if (t.dataset.tab === 'sug') loadSugs();
 });
@@ -1182,7 +1182,7 @@ async function loadNotes() {
   buildViewAs(); updateBell(); renderNotes(); if ($('drawer').classList.contains('open') && drawerId) renderDrawerNotes(true);
   render(); renderSemana();
   loadAvatars();
-  clearInterval(notesTimer); notesTimer = setInterval(() => { if (me) loadNotes(); }, 60000);
+  clearInterval(notesTimer); notesTimer = setInterval(() => { if (me) { loadNotes(); loadCards(); } }, 60000);
 }
 const isRec = n => me && n.para_id === actor().id && !n.privado && n.de_id !== actor().id;
 const isEnv = n => me && n.de_id === actor().id && !n.privado;
@@ -1190,8 +1190,7 @@ const isRas = n => me && n.privado && n.de_id === actor().id;
 const isTime = n => me && !n.privado && n.de_id !== actor().id && n.para_id !== actor().id;
 const unreadN = () => NOTES.filter(n => me && n.para_id === me.id && !n.privado && n.de_id !== me.id && !n.lida_em).length;
 function updateBell() { renderBell(); const k = unreadN(), b = $('bellN'); b.textContent = k > 99 ? '99+' : k; b.classList.toggle('hidden', !k); $('bell').setAttribute('aria-label', k ? `Notificações: ${k} nova(s)` : 'Notificações'); }
-const noQuadro = n => n.tipo === 'melhoria' && !n.conversation_id && !n.privado && !n.resposta_a;   // só pontos de melhoria escritos fora de uma conversa viram cartão
-const feito = n => !!n.concluida_em && !noQuadro(n);
+const feito = n => !!n.concluida_em;
 const notesOf = box => NOTES.filter(n => !n.resposta_a).filter(box === 'ras' ? isRas : box === 'conc' ? (n => feito(n) && (isRec(n) || isEnv(n) || isTime(n)))
   : (n => !feito(n) && (box === 'rec' ? isRec(n) : box === 'env' ? isEnv(n) : isTime(n))));
 let npage = 0; const NPP = 10;
@@ -1226,14 +1225,11 @@ function noteItem(n, box, noDrawer) {
   const quem = n.privado ? '<b>Rascunho privado</b> <span class="to">só você vê</span>'
     : `<b>${esc(eu(n.de_id) ? 'Você' : pname(n.de_id))}</b> <span class="to">enviado para <b>${esc(eu(n.para_id) ? 'você' : pname(n.para_id))}</b></span>`;
   const novo = box === 'rec' && !n.lida_em;
-  const meuStatus = noQuadro(n) && n.para_id === actor().id && !bloq();
-  const status = meuStatus
-    ? `<select data-st="${n.id}" aria-label="Situação do ponto de melhoria">${STATUS.map(([k, l]) => `<option value="${k}" ${n.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`
-    : (noQuadro(n) && n.status ? `<span class="tp analise">${STATUS_L[n.status]}</span>` : '');
+  const status = '';
   const conv = noDrawer ? (n.trecho ? `<a data-goto="${n.id}">Ver no texto ↑</a>` : '') : !n.conversation_id ? '<span>Sem conversa ligada</span>'
     : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">${n.trecho ? 'Abrir no trecho' : 'Abrir conversa'} …${esc(n.conversation_id.slice(-8))}</a>`
     : `<span title="Essa conversa não está mais no site, ou você não tem acesso a ela">Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`;
-  const podeFim = !noQuadro(n) && !n.privado && !n.resposta_a && (n.para_id === actor().id || n.de_id === actor().id || isAdm(me)) && !bloq();
+  const podeFim = !n.privado && !n.resposta_a && (n.para_id === actor().id || n.de_id === actor().id || isAdm(me)) && !bloq();
   const concl = feito(n) ? `<span class="tp elogio">✓ Concluído ${hora(new Date(n.concluida_em))}</span>` : '';
   const fim = podeFim ? (feito(n) ? `<button class="lnk" data-undo="${n.id}" type="button">Reabrir</button>` : `<button class="donebtn" data-done="${n.id}" type="button">✓ Concluir</button>`) : '';
   const apagar = (n.de_id === actor().id || isAdm(me)) && !bloq() ? `<button class="lnk" data-del="${n.id}" type="button">${n.privado ? 'Apagar rascunho' : 'Excluir'}</button>` : '';
@@ -1245,39 +1241,66 @@ function noteItem(n, box, noDrawer) {
     <div class="nact">${resp}${conv}${status}${concl}${fim}${apagar}</div>${threadHtml(n)}</div></div>`;
 }
 
-/* quadro de desenvolvimento (kanban) */
-let nview = 'lista', kbWho = null, kbDrag = null;
+/* quadro de desenvolvimento (kanban): cartões próprios, criados pela liderança; sem ligação com a lista de anotações */
+let nview = 'lista', kbWho = null, kbDrag = null, CARDS = [], CARDSIG = '';
 const KB_COLS = [['para_trabalhar', 'Para trabalhar'], ['trabalhando', 'Trabalhando'], ['evolui', 'Evoluí']], KB_LIM = 2;
-const kbPts = () => NOTES.filter(noQuadro);
+const kcod = n => 'QD-' + String(n.codigo || 0).padStart(4, '0');
+async function loadCards() {
+  if (!me) return;
+  const r = await supa.from('quadro_cartoes').select('*').order('criado_em', { ascending: false });
+  if (r.error) return;
+  const sig = r.data.map(c => c.id + c.status + c.titulo + (c.descricao || '')).join('|');
+  const digitando = document.activeElement && document.activeElement.closest && document.activeElement.closest('#kbForm');
+  CARDS = r.data;
+  if (sig !== CARDSIG && !digitando) { CARDSIG = sig; if (nview === 'quadro') renderNotes(); } else CARDSIG = sig;
+}
 function renderKanban() {
-  const a = actor(), ids = [...new Set(kbPts().map(n => n.para_id))];
-  const people = ids.map(id => ({ id, nome: pname(id) })).sort((x, y) => (y.id === a.id) - (x.id === a.id) || x.nome.localeCompare(y.nome, 'pt-BR'));
-  if (!people.some(p => p.id === kbWho)) kbWho = (people[0] || {}).id || null;
-  const L = kbPts().filter(n => n.para_id === kbWho), meu = !bloq() && (kbWho === actor().id || isAdm(me));
+  const a = actor(), lid = isLid(a), criar = lid && !bloq();
+  const pessoas = lid ? [...NPEOPLE.values()].filter(p => p.ativo && (p.perfil === 'atendente' || CARDS.some(c => c.para_id === p.id))).sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR')) : [{ id: a.id, nome: a.nome }];
+  if (!pessoas.some(p => p.id === kbWho)) kbWho = ((lid ? pessoas.find(p => CARDS.some(c => c.para_id === p.id)) || pessoas[0] : pessoas[0]) || {}).id || null;
+  const L = CARDS.filter(c => c.para_id === kbWho), pode = !bloq() && (kbWho === a.id || lid);
   const ev = L.filter(n => n.status === 'evolui').length;
-  if (!L.length) { $('nList').innerHTML = '<div class="vempty">O quadro mostra os pontos de melhoria escritos na aba Desenvolvimento, sem conversa ligada. As anotações feitas dentro das conversas ficam só nas listas.</div>'; return; }
-  const sel = people.length > 1 || !meu ? `<label for="kbWho" style="font-size:13px;color:var(--muted)">Quadro de</label> <select id="kbWho" style="width:auto">${people.map(p => `<option value="${p.id}" ${p.id === kbWho ? 'selected' : ''}>${esc(p.id === me.id && !simulando() ? p.nome + ' (você)' : p.nome)}</option>`).join('')}</select>` : '<b style="font-size:14px">Seu quadro de desenvolvimento</b>';
+  const sel = lid ? `<label for="kbWho" style="font-size:13px;color:var(--muted)">Quadro de</label> <select id="kbWho" style="width:auto">${pessoas.map(p => `<option value="${p.id}" ${p.id === kbWho ? 'selected' : ''}>${esc(p.id === a.id && !simulando() ? p.nome + ' (você)' : p.nome)}</option>`).join('')}</select>` : '<b style="font-size:14px">Seu quadro de desenvolvimento</b>';
+  const form = criar ? `<div class="comp" id="kbForm" style="margin-top:12px"><div class="cgrid">
+      <div><label for="kbPara">Para</label><select id="kbPara">${pessoas.map(p => `<option value="${p.id}" ${p.id === kbWho ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></div>
+      <div><label for="kbTit">Título do cartão</label><input id="kbTit" maxlength="140" placeholder="Ex.: Confirmar o prazo com o cliente antes de encerrar"></div></div>
+      <label for="kbDesc">Detalhes (opcional)</label><textarea id="kbDesc" rows="2" maxlength="2000" placeholder="O que fazer, como saber que evoluiu"></textarea>
+      <div class="alert" id="kbMsg" role="status"></div><button class="btn" data-kbadd="1" type="button" style="width:auto;margin-top:10px;padding:9px 18px">Adicionar ao quadro</button></div>` : '';
   const col = ([k, l]) => {
-    const C = L.filter(n => (n.status || 'para_trabalhar') === k), i = KB_COLS.findIndex(c => c[0] === k);
+    const C = L.filter(n => n.status === k), i = KB_COLS.findIndex(c => c[0] === k);
     return `<div class="kcol" data-k="${k}"><div class="kch"><span>${l}</span><span>${C.length}</span></div>${k === 'trabalhando' && C.length > KB_LIM ? `<div class="kwip">Mais de ${KB_LIM} ao mesmo tempo. Foque em poucos.</div>` : ''}` +
-      C.map(n => `<div class="kcard" ${meu ? 'draggable="true"' : ''} data-id="${n.id}"><div class="nmeta"><b>${esc(pname(n.de_id))}</b><span class="cod">${cod(n)}</span><span class="when">${hora(new Date(n.criado_em))}</span></div>${n.trecho ? `<div class="nquote" title="Clique para ver o trecho inteiro">${esc(n.trecho)}</div>` : ''}<p>${esc(n.texto)}</p>
-        <div class="nact">${!n.conversation_id ? '<span>Sem conversa ligada</span>' : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">${n.trecho ? 'Abrir no trecho' : 'Abrir conversa'} …${esc(n.conversation_id.slice(-8))}</a>` : `<span>Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`}</div>
-        ${meu ? `<div class="kmv">${i > 0 ? `<button data-kbm="${n.id}" data-to="${KB_COLS[i - 1][0]}" type="button">← Voltar</button>` : ''}${i < 2 ? `<button data-kbm="${n.id}" data-to="${KB_COLS[i + 1][0]}" type="button">${i === 0 ? 'Começar' : 'Evoluí'} →</button>` : ''}</div>` : ''}</div>`).join('') +
-      (C.length ? '' : `<div class="note" style="padding:8px 4px">${meu ? 'Arraste um cartão para cá.' : 'Nenhum ponto aqui.'}</div>`) + '</div>';
+      C.map(n => `<div class="kcard" ${pode ? 'draggable="true"' : ''} data-id="${n.id}"><div class="nmeta"><b>${esc(pname(n.criado_por))}</b><span class="cod">${kcod(n)}</span><span class="when">${hora(new Date(n.criado_em))}</span></div><p style="font-weight:600;margin:6px 0 2px">${esc(n.titulo)}</p>${n.descricao ? `<p style="white-space:pre-wrap;word-break:break-word">${esc(n.descricao)}</p>` : ''}
+        ${pode ? `<div class="kmv">${i > 0 ? `<button data-kbm="${n.id}" data-to="${KB_COLS[i - 1][0]}" type="button">← Voltar</button>` : ''}${i < 2 ? `<button data-kbm="${n.id}" data-to="${KB_COLS[i + 1][0]}" type="button">${i === 0 ? 'Começar' : 'Evoluí'} →</button>` : ''}${criar ? `<button class="lnk" data-kbdel="${n.id}" type="button" style="margin-left:auto">Excluir</button>` : ''}</div>` : ''}</div>`).join('') +
+      (C.length ? '' : `<div class="note" style="padding:8px 4px">${pode ? 'Arraste um cartão para cá.' : 'Nenhum cartão aqui.'}</div>`) + '</div>';
   };
-  $('nList').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div style="display:flex;gap:8px;align-items:center">${sel}</div><div style="min-width:180px;max-width:320px;flex:1"><div class="note" style="margin:0 0 4px">${ev} de ${L.length} pontos já evoluídos</div><div style="height:6px;border-radius:3px;background:rgba(35,36,42,.08);overflow:hidden"><i style="display:block;height:100%;width:${Math.round(ev / L.length * 100)}%;background:var(--good)"></i></div></div></div>
+  $('nList').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div style="display:flex;gap:8px;align-items:center">${sel}</div>${L.length ? `<div style="min-width:180px;max-width:320px;flex:1"><div class="note" style="margin:0 0 4px">${ev} de ${L.length} já evoluídos</div><div style="height:6px;border-radius:3px;background:rgba(35,36,42,.08);overflow:hidden"><i style="display:block;height:100%;width:${Math.round(ev / L.length * 100)}%;background:var(--good)"></i></div></div>` : ''}</div>${form}
+    ${L.length ? '' : `<div class="vempty" style="margin-top:12px">${lid ? 'Ainda não há cartões para esta pessoa. Adicione o primeiro acima.' : 'Quando a liderança adicionar um cartão para você, ele aparece aqui para você organizar.'}</div>`}
     <div class="kb">${KB_COLS.map(col).join('')}</div>
-    <p class="note" style="margin-top:12px">${meu ? 'Arraste os cartões ou use os botões para mostrar em que etapa você está.' : 'Só a pessoa dona do quadro move os cartões. Para conversar sobre um ponto, use a aba Lista e o botão Responder.'}</p>`;
+    <p class="note" style="margin-top:12px">${pode ? 'Arraste os cartões ou use os botões para mostrar em que etapa está.' : 'Só quem recebe o cartão ou a liderança move as etapas.'}${lid ? ' Os cartões do quadro não têm ligação com as anotações das conversas.' : ''}</p>`;
 }
 async function kbMove(id, to) {
   if (bloq()) return;
-  const n = NOTES.find(x => x.id === id); if (!n || (n.para_id !== actor().id && !isAdm(me)) || (n.status || 'para_trabalhar') === to) return;
-  const { error } = await supa.from('anotacoes').update({ status: to }).eq('id', id);
+  const n = CARDS.find(x => x.id === id); if (!n || (n.para_id !== actor().id && !isLid(actor())) || n.status === to) return;
+  const { error } = await supa.from('quadro_cartoes').update({ status: to }).eq('id', id);
   if (error) { alert('Não foi possível mover o cartão.'); return; }
-  n.status = to; renderNotes(); renderDrawerNotes();
+  n.status = to; CARDSIG = CARDS.map(c => c.id + c.status + c.titulo + (c.descricao || '')).join('|'); renderNotes();
+}
+async function kbAdd() {
+  if (bloq()) return;
+  const say = (k, t) => msg($('kbMsg'), k, t), para = $('kbPara').value, tit = $('kbTit').value.trim(), desc = $('kbDesc').value.trim();
+  if (!tit) return say('err', 'Escreva o título do cartão.');
+  const { data, error } = await supa.from('quadro_cartoes').insert({ para_id: para, criado_por: actor().id, titulo: tit, descricao: desc || null }).select().single();
+  if (error) return say('err', 'Não foi possível adicionar. ' + error.message);
+  CARDS.unshift(data); kbWho = para; CARDSIG = CARDS.map(c => c.id + c.status + c.titulo + (c.descricao || '')).join('|'); renderNotes();
+}
+async function kbDel(id) {
+  if (bloq() || !confirm('Excluir este cartão do quadro? Isso não pode ser desfeito.')) return;
+  const { data, error } = await supa.from('quadro_cartoes').delete().eq('id', id).select('id');
+  if (error || !data || !data.length) { alert('Não foi possível excluir o cartão.'); return; }
+  CARDS = CARDS.filter(c => c.id !== id); CARDSIG = CARDS.map(c => c.id + c.status + c.titulo + (c.descricao || '')).join('|'); renderNotes();
 }
 $('nView').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; nview = b.dataset.v; renderNotes(); };
-$('nList').addEventListener('click', e => { const b = e.target.closest('[data-kbm]'); if (b) kbMove(b.dataset.kbm, b.dataset.to); const g = e.target.closest('[data-pg]'); if (g && !g.disabled) { npage = +g.dataset.pg; renderNotes(); $('nList').scrollIntoView({ block: 'start' }); } });
+$('nList').addEventListener('click', e => { const b = e.target.closest('[data-kbm]'); if (b) kbMove(b.dataset.kbm, b.dataset.to); const ka = e.target.closest('[data-kbadd]'); if (ka) kbAdd(); const kd = e.target.closest('[data-kbdel]'); if (kd) kbDel(kd.dataset.kbdel); const g = e.target.closest('[data-pg]'); if (g && !g.disabled) { npage = +g.dataset.pg; renderNotes(); $('nList').scrollIntoView({ block: 'start' }); } });
 $('nList').addEventListener('change', e => { if (e.target.id === 'kbWho') { kbWho = e.target.value; renderNotes(); } });
 $('nList').addEventListener('dragstart', e => { const c = e.target.closest('.kcard'); if (c) { kbDrag = c.dataset.id; c.classList.add('drag'); } });
 $('nList').addEventListener('dragend', () => { kbDrag = null; if (nview === 'quadro') renderNotes(); });
@@ -1353,7 +1376,7 @@ function prepComposer(p, getCtx) {
       if (conv && !DATA.some(c => c.id === conv)) return msg($(p + 'Msg'), 'err', 'Não achei essa conversa entre as que você pode ver. Confira o protocolo.');
     }
     $(p + 'Send').disabled = true;
-    const { data, error } = await supa.from('anotacoes').insert({ de_id: actor().id, para_id: priv ? actor().id : dest.value, tipo, texto: txt, conversation_id: conv, trecho: ctx.quote || null, privado: priv, status: tipo === 'melhoria' && !conv ? 'para_trabalhar' : null }).select().single();
+    const { data, error } = await supa.from('anotacoes').insert({ de_id: actor().id, para_id: priv ? actor().id : dest.value, tipo, texto: txt, conversation_id: conv, trecho: ctx.quote || null, privado: priv, status: null }).select().single();
     $(p + 'Send').disabled = false;
     if (error) return msg($(p + 'Msg'), 'err', 'Não foi possível enviar. ' + error.message);
     NOTES.unshift(data); $(p + 'Txt').value = '';
