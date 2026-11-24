@@ -496,7 +496,7 @@
     <!-- aba acessos (só liderança) -->
     <div id="tab-acc" class="hidden acc">
       <div class="filters">
-        <p class="note">A liderança controla quem entra e o que cada pessoa vê, mas só o administrador concede ou retira o acesso de administrador. <strong>Ver todas as conversas</strong> libera o time todo para uma atendente específica. <strong>Ativo</strong> desligado bloqueia o acesso na hora. As mudanças são salvas no banco. Para a atendente ver as próprias conversas, o nome cadastrado precisa ser igual ao do Intercom.</p>
+        <p class="note">A liderança controla quem entra e o que cada pessoa vê. Só o administrador muda o perfil (atendente, liderança ou administrador). <strong>Ver todas as conversas</strong> libera o time todo para uma atendente específica. <strong>Ativo</strong> desligado bloqueia o acesso na hora. As mudanças são salvas no banco. Para a atendente ver as próprias conversas, o nome cadastrado precisa ser igual ao do Intercom.</p>
         <div class="tablewrap"><table style="min-width:720px"><thead><tr><th>Pessoa</th><th>Perfil</th><th>Ver todas as conversas</th><th>Ativo</th><th>Conta</th></tr></thead><tbody id="accRows"></tbody></table></div>
         <form class="addp" id="addForm">
           <div><label for="addNome">Nome (como no Intercom)</label><input id="addNome" required></div>
@@ -890,15 +890,15 @@ function renderAccess() {
   const souAdm = isAdm(me);
   $('accRows').innerHTML = PEOPLE.map(a => {
     const eu = me && a.id === me.id, adm = isAdm(a), lider = isLid(a);
-    const trava = eu || (adm && !souAdm);   // liderança nunca mexe em administrador; ninguém muda o próprio perfil
+    const trava = !souAdm ? (eu || adm) : false;   // só o administrador muda perfil; liderança nunca mexe em administrador
     const opt = (v, l) => `<option value="${v}" ${a.perfil === v ? 'selected' : ''}>${l}</option>`;
     return `<tr><td><strong>${esc(a.nome)}${eu ? ' (você)' : ''}</strong><small>${esc(a.email)}</small></td>
-      <td><select data-id="${a.id}" data-f="perfil" ${trava ? 'disabled' : ''}>${opt('atendente', 'Atendente')}${opt('lider', 'Liderança')}${souAdm || adm ? opt('admin', 'Administrador') : ''}</select></td>
+      <td><select data-id="${a.id}" data-f="perfil" ${souAdm ? '' : 'disabled'} title="${souAdm ? '' : 'Só o administrador muda o perfil'}">${opt('atendente', 'Atendente')}${opt('lider', 'Liderança')}${souAdm || adm ? opt('admin', 'Administrador') : ''}</select></td>
       <td><input type="checkbox" data-id="${a.id}" data-f="ver_todos" ${lider || a.ver_todos ? 'checked' : ''} ${lider || (adm && !souAdm) ? 'disabled' : ''}></td>
       <td><input type="checkbox" data-id="${a.id}" data-f="ativo" ${a.ativo ? 'checked' : ''} ${trava ? 'disabled' : ''}></td>
       <td>${a.user_id ? '<span class="tag yes">Conta criada</span>' : '<span class="tag">Aguardando 1º acesso</span>'}</td></tr>`;
   }).join('');
-  $('addPerfil').innerHTML = '<option value="atendente">Atendente</option><option value="lider">Liderança</option>' + (souAdm ? '<option value="admin">Administrador</option>' : '');
+  $('addPerfil').innerHTML = '<option value="atendente">Atendente</option>' + (souAdm ? '<option value="lider">Liderança</option><option value="admin">Administrador</option>' : '');
 }
 $('accRows').addEventListener('change', async e => {
   const el = e.target, f = el.dataset.f; if (!f) return;
