@@ -1146,8 +1146,11 @@ document.addEventListener('focusin', e => { const el = e.target.closest && e.tar
 document.addEventListener('focusout', () => { tip.style.display = 'none'; });
 
 /* ---------- 8) DESENVOLVIMENTO: anotações entre atendentes e liderança ---------- */
-const TIPOS = [['melhoria', '💡 Ponto de melhoria'], ['analise', '⚠️ Ponto de atenção'], ['elogio', '👏 Elogio'], ['duvida', '❓ Dúvida']];
+const TIPOS = [['melhoria', '⚠️ Ponto de melhoria'], ['elogio', '👏 Mandou bem'], ['duvida', '❓ Dúvida']];
 const TIPO_L = Object.fromEntries(TIPOS);
+TIPO_L.analise = TIPO_L.melhoria;   // antigas marcações de análise passaram a ponto de melhoria
+/* atendente só marca ponto de melhoria; liderança e administrador também elogiam e tiram dúvidas */
+const tiposDe = a => isLid(a) ? TIPOS : TIPOS.filter(t => t[0] === 'melhoria');
 const STATUS = [['para_trabalhar', 'Para trabalhar'], ['trabalhando', 'Trabalhando'], ['evolui', 'Evoluí']];
 const STATUS_L = Object.fromEntries(STATUS);
 let NOTES = [], NPEOPLE = new Map(), nbox = 'rec', ngrp = 'tipo', nft = null, notesTimer = null;
@@ -1323,7 +1326,7 @@ const recipients = () => {
 };
 function composerHtml(p, comConversa) {
   return `<div class="comp"><div class="cgrid">
-    <div><label for="${p}Tipo">Tipo</label><select id="${p}Tipo">${TIPOS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
+    <div><label for="${p}Tipo">Tipo</label><select id="${p}Tipo">${tiposDe(actor()).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
     <div><label for="${p}Dest">Para</label><select id="${p}Dest"></select></div>
     ${comConversa ? `<div><label for="${p}Conv">Conversa (opcional)</label><input id="${p}Conv" placeholder="Protocolo da conversa" inputmode="numeric"></div>` : ''}
   </div><div id="${p}Quote"></div>
