@@ -823,7 +823,9 @@ function openDrawer(c, fila) {
     </div>
     <div class="dr">
       <div class="fcard"><div class="flb">Avaliação do cliente</div>
-        <div style="display:flex;align-items:center;gap:12px">${sc(c.csat)}<div>${c.comment ? esc(c.comment) : 'Sem comentário'}<div style="font-size:12px;color:var(--muted)">${fmtD(c.avaliado)} · cliente disse que foi resolvido: ${c.resolvido === 'sim' ? 'sim' : c.resolvido === 'nao' ? 'não' : '—'}</div></div></div></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">${sc(c.csat)}<span style="font-size:13px;color:var(--muted)">nota de 0 a 5 (CSAT)</span></div>
+        ${kv('Avaliada em', fmtD(c.avaliado))}${kv('Cliente disse que resolveu', c.resolvido === 'sim' ? '<span class="tag yes">Sim</span>' : c.resolvido === 'nao' ? '<span class="tag no">Não</span>' : '—')}
+        <div style="border-top:1px solid var(--line);padding-top:8px;margin-top:2px"><div style="font-size:12px;color:var(--muted);margin-bottom:3px">Comentário do cliente</div>${c.comment ? `<div style="font-size:13.5px;white-space:pre-wrap;word-break:break-word">${esc(c.comment)}</div>` : '<div style="font-size:13px;color:var(--muted)">Sem comentário.</div>'}</div></div>
       <div class="fcard"><div class="flb">Indicadores</div>
         ${kv('FCR (sem retorno em 7 dias)', fcrTagC(c))}${kv('1ª resposta', fmtSec(c.first) + (c.longa ? ' · espera longa' : ''))}
         ${kv('Atendimento (sem pausas de 12h+)', fmtSec(c.dur))}${kv('Entre respostas (média)', fmtSec(c.gap))}
