@@ -283,6 +283,12 @@
   .msg small{display:block;opacity:.7;font-size:11px;margin-top:3px}
 
   /* notas estilo Notion */
+  .msg.c{background:var(--bg);border:1px solid var(--line);margin-right:auto}
+  .msg.a{background:var(--brand);color:var(--brand-ink);margin-left:auto}
+  .msg.i{background:#ece9fb;border:1px solid #d4cff2;color:#2e2f39;margin-left:auto;margin-right:0}
+  .msg .who{display:block;font-weight:700;font-size:12px;margin-bottom:3px}
+  .msg.a small,.msg.i small{opacity:.75}
+  .msg.a .qbtn,.msg.i .qbtn{opacity:.85}
   .msg.anot{box-shadow:0 0 0 2px rgba(240,180,0,.55)}
   .mnote{max-width:80%;margin:-3px 0 10px 22px;background:#fffbea;border:1px solid #f1e2a6;border-left:4px solid #f0b400;border-radius:10px;padding:7px 10px;font-size:12.5px;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.05)}
   .mnote.flash{animation:fl 1.6s ease}
@@ -526,7 +532,7 @@
 
 <!-- detalhe da conversa -->
 <aside id="drawer" aria-label="Detalhe da conversa">
-  <div class="d-head"><div><strong id="dTitle"></strong><div class="pill" id="dSub" style="margin-top:6px;display:inline-block"></div></div><div style="display:flex;gap:8px;align-items:center"><a id="dIc" class="icbtn hidden" target="_blank" rel="noopener noreferrer">Abrir no Intercom ↗</a><button class="btn ghost" id="dClose">Fechar</button></div></div>
+  <div class="d-head"><div><strong id="dTitle"></strong><div class="pill" id="dSub" style="margin-top:6px;display:inline-block"></div><div id="dCli" class="hidden" style="margin-top:6px;font-size:14px;font-weight:600"></div></div><div style="display:flex;gap:8px;align-items:center"><a id="dIc" class="icbtn hidden" target="_blank" rel="noopener noreferrer">Abrir no Intercom ↗</a><button class="btn ghost" id="dClose">Fechar</button></div></div>
   <div id="dNav" class="dnav"></div>
   <div class="d-body" id="dBody"></div>
 </aside>
@@ -641,7 +647,7 @@ const mapRow = r => ({
   fcrParcial: r.fcr_parcial,
   id: r.conversation_id, date: new Date(r.aberta_em), fim: r.encerrada_em ? new Date(r.encerrada_em) : null,
   avaliado: r.avaliado_em ? new Date(r.avaliado_em) : null, canal: r.canal, motivo: r.motivo,
-  agent: r.atendente_nome || '(sem nome)', csat: r.csat_nota, comment: r.csat_comentario, resolvido: r.resolvido_cliente,
+  cliente: r.cliente_nome || '', agent: r.atendente_nome || '(sem nome)', csat: r.csat_nota, comment: r.csat_comentario, resolvido: r.resolvido_cliente,
   fcr: r.fcr, dur: r.tempo_atendimento_s, pausas: r.pausas_descontadas || 0,
   gap: r.tempo_entre_respostas_s == null ? null : Number(r.tempo_entre_respostas_s), first: r.primeira_resposta_s, longa: !!r.espera_longa
 });
@@ -792,6 +798,7 @@ function openDrawer(c, fila) {
   reviewQueue = fila || [];
   $('dTitle').textContent = `${c.id} · ${c.motivo || 'Sem classificação'}`;
   $('dSub').textContent = `${c.agent} · ${c.canal || 'canal n/d'}`;
+  $('dCli') && ($('dCli').textContent = c.cliente ? 'Cliente: ' + c.cliente : '', $('dCli').classList.toggle('hidden', !c.cliente));
   const item = (l, v) => `<div><span>${l}</span>${v}</div>`;
   const sec = t => `<div style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.04em">${t}</div>`;
   $('dBody').innerHTML = `
@@ -844,8 +851,9 @@ function renderMessages(list, c) {
     const pre = m.tipo === 'audio_transcription' ? '[áudio transcrito] ' : m.tipo === 'attachment_interpretation' ? '[anexo] ' : '';
     const q = (quem + ': ' + pre + (m.texto || '')).slice(0, 600), ns = notasDoTrecho(c.id, q);
     ns.forEach(n => { sig += n.id + n.texto; });
-    return `<div class="msg ${cls}${ns.length ? ' anot' : ''}">${esc(pre + (m.texto || ''))}<small>${esc(quem)} · ${hora(m.enviado_em ? new Date(m.enviado_em) : null)}</small><button class="qbtn" type="button" data-q="${esc(q)}">Anotar trecho</button></div>` +
-      ns.map(n => `<div class="mnote ${cls === 'a' ? 'a' : ''}" data-mn="${n.id}"><div class="mh"><b>${esc(n.de_id === actor().id && !simulando() ? 'Você' : pname(n.de_id))}</b><span>→ ${esc(n.para_id === actor().id && !simulando() ? 'você' : pname(n.para_id))}</span><span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="cod">${cod(n)}</span><span>${hora(new Date(n.criado_em))}</span></div><div class="mt">${esc(n.texto)}</div></div>`).join('');
+    const quemVe = cls === 'c' && c.cliente ? c.cliente : quem;
+    return `<div class="msg ${cls}${ns.length ? ' anot' : ''}"><span class="who">${esc(quemVe)}</span>${esc(pre + (m.texto || ''))}<small>${hora(m.enviado_em ? new Date(m.enviado_em) : null)}</small><button class="qbtn" type="button" data-q="${esc(q)}">Anotar trecho</button></div>` +
+      ns.map(n => `<div class="mnote ${cls !== 'c' ? 'a' : ''}" data-mn="${n.id}"><div class="mh"><b>${esc(n.de_id === actor().id && !simulando() ? 'Você' : pname(n.de_id))}</b><span>→ ${esc(n.para_id === actor().id && !simulando() ? 'você' : pname(n.para_id))}</span><span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="cod">${cod(n)}</span><span>${hora(new Date(n.criado_em))}</span></div><div class="mt">${esc(n.texto)}</div></div>`).join('');
   }).join('');
   MSGSIG = sig;
   if (pendGoto && goNote(pendGoto)) pendGoto = null;
