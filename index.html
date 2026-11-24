@@ -269,10 +269,23 @@
   .chk{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin:0}
   .chk input{width:auto;margin:0;accent-color:var(--good)}
   /* drawer */
-  #drawer{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;z-index:10}
+  #drawer{position:fixed;top:0;right:0;height:100%;width:min(980px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;z-index:10}
   #drawer.open{transform:none}
   .d-head{padding:16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
-  .d-body{padding:16px;overflow:auto;flex:1}
+  .d-body{padding:0;overflow:hidden;flex:1;min-height:0}
+  .dcols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);height:100%}
+  .dl{padding:16px 20px;overflow:auto;border-right:1px solid var(--line);min-width:0}
+  .dr{padding:16px 20px;overflow:auto;background:#fafafb;min-width:0}
+  .fcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+  .flb{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;font-weight:600}
+  .kv{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+  .kv:first-of-type{border-top:0}
+  .kv>span{color:var(--muted)}
+  .kv>b{font-weight:600;text-align:right}
+  .dr .dmarks{background:var(--card);border-radius:14px;margin-bottom:12px}
+  .dr .dnav{border:1px solid var(--line);border-radius:14px;margin:0;background:var(--card)}
+  .dl .dnotes{margin-top:14px}
+  @media(max-width:760px){.d-body{overflow:auto}.dcols{grid-template-columns:1fr;height:auto}.dl{border-right:0;border-bottom:1px solid var(--line);overflow:visible}.dr{overflow:visible}}
   .csat-box{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}
   .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;font-size:13px}
   .meta > div > span:first-child{color:var(--muted);display:block;font-size:11px}
@@ -532,7 +545,7 @@
 
 <!-- detalhe da conversa -->
 <aside id="drawer" aria-label="Detalhe da conversa">
-  <div class="d-head"><div><strong id="dTitle"></strong><div class="pill" id="dSub" style="margin-top:6px;display:inline-block"></div><div id="dCli" class="hidden" style="margin-top:6px;font-size:14px;font-weight:600"></div></div><div style="display:flex;gap:8px;align-items:center"><a id="dIc" class="icbtn hidden" target="_blank" rel="noopener noreferrer">Abrir no Intercom ↗</a><button class="btn ghost" id="dClose">Fechar</button></div></div>
+  <div class="d-head"><div><strong id="dTitle" style="font-size:17px"></strong><div id="dMeta" style="margin-top:3px;font-size:13px;color:var(--muted)"></div><div class="pill" id="dSub" style="margin-top:6px;display:inline-block"></div><div id="dCli" class="hidden"></div></div><div style="display:flex;gap:8px;align-items:center"><a id="dIc" class="icbtn hidden" target="_blank" rel="noopener noreferrer">Abrir no Intercom ↗</a><button class="btn ghost" id="dClose">Fechar</button></div></div>
   <div id="dNav" class="dnav"></div>
   <div class="d-body" id="dBody"></div>
 </aside>
@@ -796,37 +809,37 @@ $('rows').addEventListener('click', e => { const f = e.target.closest('[data-fav
 function openDrawer(c, fila) {
   if (!c) return;
   reviewQueue = fila || [];
-  $('dTitle').textContent = `${c.id} · ${c.motivo || 'Sem classificação'}`;
+  $('dTitle').textContent = c.cliente || `Conversa ${c.id}`;
+  $('dMeta').textContent = `Protocolo ${c.id} · ${c.motivo || 'sem classificação'}`;
   $('dSub').textContent = `${c.agent} · ${c.canal || 'canal n/d'}`;
-  $('dCli') && ($('dCli').textContent = c.cliente ? 'Cliente: ' + c.cliente : '', $('dCli').classList.toggle('hidden', !c.cliente));
-  const item = (l, v) => `<div><span>${l}</span>${v}</div>`;
-  const sec = t => `<div style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.04em">${t}</div>`;
-  $('dBody').innerHTML = `
-    <div id="dMarks" class="dmarks hidden"></div>
-    <div class="csat-box"><span style="font-size:12px;color:var(--muted)">Avaliação CSAT</span>
-      <div style="margin-top:6px">${sc(c.csat)} <span style="margin-left:8px">${c.comment ? esc(c.comment) : 'Sem comentário.'}</span></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">Avaliada em ${fmtD(c.avaliado)} · cliente disse que foi resolvido: ${c.resolvido === 'sim' ? 'sim' : c.resolvido === 'nao' ? 'não' : '—'}</div></div>
-    ${sec('Conversa')}
-    <div class="meta">
-      ${item('Protocolo', esc(c.id))}${item('Canal', esc(c.canal || '—'))}
-      ${item('Atendente', esc(c.agent))}${item('Motivo', esc(c.motivo || 'sem classificação'))}
-      ${item('Abertura', fmtD(c.date))}${item('Encerramento', fmtD(c.fim))}
+  const kv = (l, v) => `<div class="kv"><span>${l}</span><b>${v}</b></div>`;
+  $('drawer').insertBefore($('dNav'), $('dBody'));   // guarda o painel de revisão antes de refazer o conteúdo
+  $('dBody').innerHTML = `<div class="dcols">
+    <div class="dl">
+      <div id="transcr" class="note">Carregando mensagens…</div>
+      <p class="note" style="margin-top:12px">Telefones, CPF, CNPJ, CEP e e-mails foram ocultados nas mensagens.</p>
+      <div id="dNotes" class="dnotes"></div>
     </div>
-    ${sec('Indicadores')}
-    <div class="meta">
-      ${item('FCR (sem retorno em 7 dias)', fcrTagC(c))}${item('1ª resposta', fmtSec(c.first) + (c.longa ? ' · espera longa' : ''))}
-      ${item('Atendimento (sem pausas de 12h+)', fmtSec(c.dur))}${item('Entre respostas (média)', fmtSec(c.gap))}
-      ${c.pausas ? `<div style="grid-column:1/-1;border:1px dashed var(--line);border-radius:8px;padding:8px"><span>Adiamento estimado</span>${c.pausas} pausa(s) de 12h ou mais foram descontadas do tempo de atendimento.</div>` : ''}
-    </div>
-    ${sec('Mensagens')}<div id="transcr" class="note">Carregando mensagens…</div>
-    <p class="note" style="margin-top:12px">Telefones, CPF, CNPJ, CEP e e-mails foram ocultados nas mensagens.</p>
-    <div id="dNotes" class="dnotes"></div>`;
+    <div class="dr">
+      <div class="fcard"><div class="flb">Avaliação do cliente</div>
+        <div style="display:flex;align-items:center;gap:12px">${sc(c.csat)}<div>${c.comment ? esc(c.comment) : 'Sem comentário'}<div style="font-size:12px;color:var(--muted)">${fmtD(c.avaliado)} · cliente disse que foi resolvido: ${c.resolvido === 'sim' ? 'sim' : c.resolvido === 'nao' ? 'não' : '—'}</div></div></div></div>
+      <div class="fcard"><div class="flb">Indicadores</div>
+        ${kv('FCR (sem retorno em 7 dias)', fcrTagC(c))}${kv('1ª resposta', fmtSec(c.first) + (c.longa ? ' · espera longa' : ''))}
+        ${kv('Atendimento (sem pausas de 12h+)', fmtSec(c.dur))}${kv('Entre respostas (média)', fmtSec(c.gap))}
+        ${c.pausas ? `<div style="font-size:11.5px;color:var(--muted);margin-top:6px">${c.pausas} pausa(s) de 12h ou mais descontada(s) do tempo de atendimento (estimado).</div>` : ''}</div>
+      <div class="fcard"><div class="flb">Conversa</div>
+        ${kv('Atendente', esc(c.agent))}${kv('Canal', esc(c.canal || '—'))}${kv('Motivo', esc(c.motivo || 'sem classificação'))}
+        ${kv('Abertura', fmtD(c.date))}${kv('Encerramento', fmtD(c.fim))}</div>
+      <div id="dMarks" class="dmarks hidden"></div>
+      <div id="dNavSlot"></div>
+    </div></div>`;
+  $('dNavSlot').appendChild($('dNav'));
   $('drawer').classList.add('open');
   drawerQuote = ''; MSGS = null; KEEP.set('conv', c.id);
   const ic = $('dIc'), icu = intercomUrl(c.id); ic.classList.toggle('hidden', !icu); if (icu) ic.href = icu;
   loadMessages(c);
   drawerId = c.id; renderDrawerNotes(); dmOpen = false; renderDrawerMarks(c);
-  renderDrawerNav(c); $('dBody').scrollTop = 0;
+  renderDrawerNav(c); $('dBody').querySelectorAll('.dl,.dr').forEach(e => { e.scrollTop = 0; });
 }
 let drawerId = null;
 const INTERCOM_APP = 'ky1co8zo';   // ID do workspace da Allu no Intercom (o código depois de /inbox/ no endereço do Intercom)
@@ -1828,7 +1841,7 @@ function renderDrawerNav(c) {
   nav.innerHTML = `<div class="dnleft">${tem ? `<button class="btn ghost sm" type="button" data-nav="-1" ${i === 0 ? 'disabled' : ''}>‹ Anterior</button><span class="dnpos">${i + 1} de ${n}</span><button class="btn ghost sm" type="button" data-nav="1" ${i === n - 1 ? 'disabled' : ''}>Próxima ›</button>` : ''}<span class="dnmarks">${marks(c)}</span></div>` +
     `<div class="dnright">${sim ? '<span class="note" style="margin:0">Revisão desativada na prévia</span>' : `<button class="btn ghost sm" type="button" data-rev="toggle">${rev ? 'Desfazer revisão' : 'Marcar como revisada'}</button>${tem && !rev && i < n - 1 ? '<button class="btn sm" type="button" data-rev="next">Revisada e próxima ›</button>' : ''}`}</div>`;
 }
-function irParaConversa(id) { const c = DATA.find(x => x.id === id); if (c) { openDrawer(c, reviewQueue); $('dBody').scrollTop = 0; } }
+function irParaConversa(id) { const c = DATA.find(x => x.id === id); if (c) { openDrawer(c, reviewQueue); } }
 $('dNav').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   const id = drawerId, i = reviewQueue.indexOf(id);
