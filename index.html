@@ -809,7 +809,8 @@ $('rows').addEventListener('click', e => { const f = e.target.closest('[data-fav
 function openDrawer(c, fila) {
   if (!c) return;
   reviewQueue = fila || [];
-  $('dTitle').textContent = c.cliente || `Conversa ${c.id}`;
+  $('dTitle').textContent = c.cliente || 'Cliente não identificado';
+  $('dTitle').style.color = c.cliente ? '' : 'var(--muted)';
   $('dMeta').textContent = `Protocolo ${c.id} · ${c.motivo || 'sem classificação'}`;
   $('dSub').textContent = `${c.agent} · ${c.canal || 'canal n/d'}`;
   const kv = (l, v) => `<div class="kv"><span>${l}</span><b>${v}</b></div>`;
