@@ -1197,7 +1197,7 @@ function noteItem(n, box, noDrawer) {
   const conv = noDrawer ? (n.trecho ? `<a data-goto="${n.id}">Ver no texto ↑</a>` : '') : !n.conversation_id ? '<span>Sem conversa ligada</span>'
     : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">${n.trecho ? 'Abrir no trecho' : 'Abrir conversa'} …${esc(n.conversation_id.slice(-8))}</a>`
     : `<span title="Essa conversa não está mais no site, ou você não tem acesso a ela">Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`;
-  const podeFim = n.tipo !== 'melhoria' && !n.privado && !n.resposta_a && n.para_id === actor().id && !simulando();
+  const podeFim = n.tipo !== 'melhoria' && !n.privado && !n.resposta_a && (n.para_id === actor().id || n.de_id === actor().id) && !simulando();
   const concl = feito(n) ? `<span class="tp elogio">✓ Concluído ${hora(new Date(n.concluida_em))}</span>` : '';
   const fim = podeFim ? (feito(n) ? `<button class="lnk" data-undo="${n.id}" type="button">Reabrir</button>` : `<button class="donebtn" data-done="${n.id}" type="button">✓ Concluir</button>`) : '';
   const apagar = n.de_id === actor().id && !simulando() ? `<button class="lnk" data-del="${n.id}" type="button">${n.privado ? 'Apagar rascunho' : 'Excluir'}</button>` : '';
@@ -1377,7 +1377,7 @@ async function noteClick(e) {
   if (rc) { RDRAFT.delete(rc.dataset.rcancel); renderNotes(); renderDrawerNotes(); return; }
   const dn = e.target.closest('[data-done],[data-undo]');
   if (dn) {
-    const id = dn.dataset.done || dn.dataset.undo, n = NOTES.find(x => x.id === id); if (!n || n.para_id !== me.id) return;
+    const id = dn.dataset.done || dn.dataset.undo, n = NOTES.find(x => x.id === id); if (!n || (n.para_id !== me.id && n.de_id !== me.id)) return;
     const v = dn.dataset.done ? new Date().toISOString() : null;
     const { error } = await supa.from('anotacoes').update({ concluida_em: v }).eq('id', id);
     if (error) { alert('Não foi possível atualizar.'); return; }
