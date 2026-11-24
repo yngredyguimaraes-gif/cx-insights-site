@@ -853,7 +853,7 @@ function goNote(id) {
   const t = $('transcr') && $('transcr').querySelector(`[data-mn="${id}"]`); if (!t) return false;
   t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash'); return true;
 }
-const notasDoTrecho = (cid, q) => NOTES.filter(n => n.conversation_id === cid && !n.resposta_a && n.trecho === q && (!n.privado || n.de_id === actor().id));
+const notasDoTrecho = (cid, q) => NOTES.filter(n => n.conversation_id === cid && !n.resposta_a && n.trecho === q && (!n.privado || n.de_id === actor().id || isLid(actor())));
 function renderMessages(list, c) {
   const box = $('transcr'); if (!box) return;
   MSGS = { list, c };
@@ -1191,7 +1191,7 @@ const isTime = n => me && !n.privado && n.de_id !== actor().id && n.para_id !== 
 const unreadN = () => NOTES.filter(n => me && n.para_id === me.id && !n.privado && n.de_id !== me.id && !n.lida_em).length + AVISOS.filter(a => !a.lida_em).length;
 function updateBell() { renderBell(); const k = unreadN(), b = $('bellN'); b.textContent = k > 99 ? '99+' : k; b.classList.toggle('hidden', !k); $('bell').setAttribute('aria-label', k ? `Notificações: ${k} nova(s)` : 'Notificações'); }
 const feito = n => !!n.concluida_em;
-const notesOf = box => NOTES.filter(n => !n.resposta_a).filter(box === 'ras' ? isRas : box === 'conc' ? (n => feito(n) && (isRec(n) || isEnv(n) || isTime(n)))
+const notesOf = box => NOTES.filter(n => !n.resposta_a).filter(box === 'ras' ? isRas : box === 'rtime' ? (n => n.privado && n.de_id !== actor().id && isLid(actor())) : box === 'conc' ? (n => feito(n) && (isRec(n) || isEnv(n) || isTime(n)))
   : (n => !feito(n) && (box === 'rec' ? isRec(n) : box === 'env' ? isEnv(n) : isTime(n))));
 let npage = 0; const NPP = 10;
 
@@ -1222,7 +1222,7 @@ function threadHtml(n) {
 function noteItem(n, box, noDrawer) {
   const outro = box === 'rec' ? n.de_id : n.para_id;
   const eu = id => !simulando() && id === actor().id;
-  const quem = n.privado ? '<b>Rascunho privado</b> <span class="to">só você vê</span>'
+  const quem = n.privado ? (n.de_id === actor().id ? '<b>Rascunho</b> <span class="to">só você e a liderança veem</span>' : `<b>${esc(pname(n.de_id))}</b> <span class="to">rascunho (visível à liderança)</span>`)
     : `<b>${esc(eu(n.de_id) ? 'Você' : pname(n.de_id))}</b> <span class="to">enviado para <b>${esc(eu(n.para_id) ? 'você' : pname(n.para_id))}</b></span>`;
   const novo = box === 'rec' && !n.lida_em;
   const status = '';
@@ -1325,11 +1325,13 @@ function renderNotes() {
   ['nBoxes', 'nCards', 'nGrpRow'].forEach(i => $(i).classList.toggle('hidden', q));
   if (q) { $('nPreview').classList.toggle('hidden', !simulando()); if (simulando()) $('nPreview').textContent = ghost() ? 'Agindo como ' + actor().nome + ' (administrador): o que você mover ou enviar sai em nome dela, marcado como feito por você.' : 'Prévia como ' + actor().nome + ': só leitura.'; return renderKanban(); }
   if (nbox === 'time' && (simulando() || !notesOf('time').length)) nbox = 'rec';
+  if (nbox === 'rtime' && !notesOf('rtime').length) nbox = 'rec';
   const pv = $('nPreview'), sp = simPerson();
   pv.classList.toggle('hidden', !simulando());
   pv.textContent = !simulando() ? '' : ghost() ? `Agindo como ${actor().nome} (administrador): você vê as anotações dela, inclusive rascunhos. O que você escrever ou responder sai em nome dela e fica marcado como enviado por você.` : sp ? `Prévia como ${sp.nome}: a lista de destinos é a dela e nada é enviado. Aparecem só as anotações dela que você tem permissão de ver (rascunhos privados nunca aparecem).` : `Não encontrei ${viewAs} na lista de acessos, então não dá para simular esta aba.`;
   const boxes = [['rec', 'Recebidas'], ['env', 'Enviadas'], ['ras', 'Rascunhos']];
   if (!simulando() && notesOf('time').length) boxes.push(['time', 'Do time']);
+  if (isLid(actor()) && notesOf('rtime').length) boxes.push(['rtime', 'Rascunhos do time']);
   boxes.push(['conc', 'Concluídos']);
   $('nBoxes').innerHTML = boxes.map(([k, l]) => `<button type="button" class="nb${nbox === k ? ' on' : ''}" data-b="${k}">${l} (${notesOf(k).length})</button>`).join('');
   const L = notesOf(nbox);
@@ -1339,7 +1341,7 @@ function renderNotes() {
   const pages = Math.max(1, Math.ceil(S0.length / NPP)); if (npage >= pages) npage = pages - 1;
   const S = S0.slice(npage * NPP, (npage + 1) * NPP);
   let h = '';
-  if (!S.length) h = `<div class="vempty">${nbox === 'rec' ? 'Quando alguém enviar um feedback para você, ele aparece aqui.' : nbox === 'conc' ? 'Quando você concluir um feedback, ele aparece aqui.' : nbox === 'env' ? 'Você ainda não enviou feedbacks.' : nbox === 'ras' ? 'Seus rascunhos privados aparecem aqui. Só você vê.' : 'Nada por aqui.'} ${isLid(actor()) ? 'Use "Escrever feedback" ou abra uma conversa para anotar um trecho.' : 'Abra uma conversa para anotar um trecho.'}</div>`;
+  if (!S.length) h = `<div class="vempty">${nbox === 'rec' ? 'Quando alguém enviar um feedback para você, ele aparece aqui.' : nbox === 'conc' ? 'Quando você concluir um feedback, ele aparece aqui.' : nbox === 'env' ? 'Você ainda não enviou feedbacks.' : nbox === 'ras' ? 'Seus rascunhos aparecem aqui. Só você e a liderança veem.' : 'Nada por aqui.'} ${isLid(actor()) ? 'Use "Escrever feedback" ou abra uma conversa para anotar um trecho.' : 'Abra uma conversa para anotar um trecho.'}</div>`;
   else if (ngrp === 'tipo') h = TIPOS.map(([k, l]) => { const G = S.filter(n => n.tipo === k); return G.length ? `<div class="ngroup"><span class="tp ${k}">${l} · ${G.length}</span>${k === 'melhoria' ? ' <span class="when" style="font-size:12px;color:var(--muted)">para focar</span>' : ''}${G.map(n => noteItem(n, nbox)).join('')}</div>` : ''; }).join('');
   else {
     const P = new Map();
@@ -1370,7 +1372,7 @@ function composerHtml(p, comConversa) {
 }
 function prepComposer(p, getCtx) {
   const dest = $(p + 'Dest');
-  dest.innerHTML = recipients().map(r => `<option value="${r.id}">${esc(r.nome)}${r.id === actor().lider_direto_id ? ' (liderança direta)' : ''}</option>`).join('') + '<option value="priv">Só para mim (rascunho privado)</option>';
+  dest.innerHTML = recipients().map(r => `<option value="${r.id}">${esc(r.nome)}${r.id === actor().lider_direto_id ? ' (liderança direta)' : ''}</option>`).join('') + '<option value="priv">Só para mim (rascunho; a liderança também vê)</option>';
   const lbl = () => { $(p + 'Send').textContent = bloq() ? 'Envio desativado na prévia' : dest.value === 'priv' ? 'Salvar rascunho' : 'Enviar para ' + (NPEOPLE.get(dest.value) || {}).nome + (ghost() ? ' (como ' + actor().nome + ')' : ''); $(p + 'Send').disabled = bloq(); };
   dest.onchange = lbl; lbl();
   const aviso = 'Você está no modo "Ver como": o envio fica desativado para não sair nada em nome de outra pessoa. Para escrever de verdade, volte em "Ver como: eu mesmo", no topo da página.';
@@ -1391,7 +1393,7 @@ function prepComposer(p, getCtx) {
     if (error) return msg($(p + 'Msg'), 'err', 'Não foi possível enviar. ' + error.message);
     NOTES.unshift(data); $(p + 'Txt').value = '';
     if (ctx.clearQuote) ctx.clearQuote();
-    msg($(p + 'Msg'), 'ok', priv ? 'Rascunho salvo. Só você vê.' : 'Anotação enviada para ' + pname(data.para_id) + '.');
+    msg($(p + 'Msg'), 'ok', priv ? 'Rascunho salvo. Só você e a liderança veem.' : 'Anotação enviada para ' + pname(data.para_id) + '.');
     updateBell(); renderNotes(); if (p === 'nd') renderDrawerNotes();
   };
 }
@@ -1408,7 +1410,7 @@ function renderDrawerNotes(force) {
   const box = $('dNotes'); if (!box || !me || !drawerId) return;
   const cc = DATA.find(x => x.id === drawerId); if (cc && $('dNav')) setTimeout(() => renderDrawerNav(cc), 0);
   if (!$('dNotesList')) box.innerHTML = '<div id="dNotesList"></div><div id="dNotesComp"></div>';
-  const L = NOTES.filter(n => n.conversation_id === drawerId && (!n.privado || n.de_id === actor().id));
+  const L = NOTES.filter(n => n.conversation_id === drawerId && (!n.privado || n.de_id === actor().id || isLid(actor())));
   const hl = `<div class="vsecs" style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em">Anotações desta conversa (${L.length})</div>` +
     (L.length ? L.map(n => noteItem(n, isTime(n) ? 'time' : n.de_id === actor().id ? 'env' : 'rec', true)).join('') : '<p class="note">Ainda não há anotações aqui. Use "Anotar trecho" nas mensagens para citar uma parte da conversa.</p>');
   keepFocus($('dNotesList'), () => { $('dNotesList').innerHTML = hl; });
@@ -1859,7 +1861,7 @@ function marks(c) {
   const out = [], rv = REVMAP.get(c.id), eu = actor().id;
   if (rv && rv.has(eu)) out.push(`<span class="mk ok" title="Você já revisou esta conversa">${ICON_OK} Revisada</span>`);
   else if (rv) { const dono = personIdByName(c.agent); if (dono && dono !== eu && rv.has(dono)) out.push(`<span class="mk" title="${esc(c.agent)} já revisou esta conversa">${ICON_OK} Revisada por ${esc(shortName(c.agent))}</span>`); }
-  const k = NOTES.filter(n => n.conversation_id === c.id && (!n.privado || n.de_id === eu)).length;
+  const k = NOTES.filter(n => n.conversation_id === c.id && (!n.privado || n.de_id === eu || isLid(actor()))).length;
   if (k) out.push(`<span class="mk" title="${k} anotação(ões) nesta conversa">${ICON_MSG} ${k} anotaç${k > 1 ? 'ões' : 'ão'}</span>`);
   return out.join(' ');
 }
