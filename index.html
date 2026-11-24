@@ -291,6 +291,11 @@
   .mnote .mh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-bottom:3px}
   .mnote .mh b{color:var(--ink)}
   .mnote .mt{white-space:pre-wrap;word-break:break-word}
+  .donebtn{background:none;border:1px solid var(--good);color:#17683a;border-radius:999px;padding:2px 10px;font-size:12px;cursor:pointer}
+  .donebtn:hover{background:rgba(39,174,96,.12)}
+  .pager{display:flex;gap:10px;align-items:center;justify-content:center;padding:12px 0 4px;font-size:13px;color:var(--muted)}
+  .pager button{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;font-size:13px}
+  .pager button:disabled{opacity:.4;cursor:default}
   .cod{font-family:ui-monospace,Consolas,monospace;font-size:11px;background:rgba(35,36,42,.08);border-radius:6px;padding:1px 6px;color:var(--muted)}
   .qbub{background:#fffbea;border:1px solid #f1e2a6;border-left:4px solid #f0b400;border-radius:10px;padding:8px 10px;margin:6px 0;font-size:12.5px}
   .qbub .qh{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;font-weight:600;color:#7a5600;margin-bottom:3px}
@@ -683,7 +688,7 @@ function applyView() {
   $('tabSug').classList.toggle('hidden', !souDono() || sim);
   if (sim && !$('tab-sug').classList.contains('hidden')) { document.querySelector('.tab[data-tab=sem]').click(); }
   if (sim && !$('tab-acc').classList.contains('hidden')) { document.querySelector('.tab[data-tab=sem]').click(); }
-  nbox = 'rec'; nft = null; $('nCompWrap').classList.add('hidden'); $('nCompWrap').innerHTML = '';
+  nbox = 'rec'; nft = null; npage = 0; $('nCompWrap').classList.add('hidden'); $('nCompWrap').innerHTML = '';
   if (NPEOPLE) renderNotes();
   FILTERS.forEach(id => { $(id).value = ''; }); selTags.clear(); $('dAgent').value = '';
   resetPeriods();
@@ -1150,7 +1155,10 @@ const isRas = n => me && n.privado && n.de_id === actor().id;
 const isTime = n => me && !n.privado && n.de_id !== actor().id && n.para_id !== actor().id;
 const unreadN = () => NOTES.filter(n => me && n.para_id === me.id && !n.privado && n.de_id !== me.id && !n.lida_em).length;
 function updateBell() { renderBell(); const k = unreadN(), b = $('bellN'); b.textContent = k > 99 ? '99+' : k; b.classList.toggle('hidden', !k); $('bell').setAttribute('aria-label', k ? `Notificações: ${k} nova(s)` : 'Notificações'); }
-const notesOf = box => NOTES.filter(n => !n.resposta_a).filter(box === 'rec' ? isRec : box === 'env' ? isEnv : box === 'ras' ? isRas : isTime);
+const feito = n => !!n.concluida_em && n.tipo !== 'melhoria';
+const notesOf = box => NOTES.filter(n => !n.resposta_a).filter(box === 'ras' ? isRas : box === 'conc' ? (n => feito(n) && (isRec(n) || isEnv(n) || isTime(n)))
+  : (n => !feito(n) && (box === 'rec' ? isRec(n) : box === 'env' ? isEnv(n) : isTime(n))));
+let npage = 0; const NPP = 10;
 
 /* respostas: ficam penduradas na anotação de origem, em ordem de envio */
 TIPO_L.resposta = 'Resposta';
@@ -1189,13 +1197,16 @@ function noteItem(n, box, noDrawer) {
   const conv = noDrawer ? (n.trecho ? `<a data-goto="${n.id}">Ver no texto ↑</a>` : '') : !n.conversation_id ? '<span>Sem conversa ligada</span>'
     : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">${n.trecho ? 'Abrir no trecho' : 'Abrir conversa'} …${esc(n.conversation_id.slice(-8))}</a>`
     : `<span title="Essa conversa não está mais no site, ou você não tem acesso a ela">Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`;
+  const podeFim = n.tipo !== 'melhoria' && !n.privado && !n.resposta_a && n.para_id === actor().id && !simulando();
+  const concl = feito(n) ? `<span class="tp elogio">✓ Concluído ${hora(new Date(n.concluida_em))}</span>` : '';
+  const fim = podeFim ? (feito(n) ? `<button class="lnk" data-undo="${n.id}" type="button">Reabrir</button>` : `<button class="donebtn" data-done="${n.id}" type="button">✓ Concluir</button>`) : '';
   const apagar = n.de_id === actor().id && !simulando() ? `<button class="lnk" data-del="${n.id}" type="button">${n.privado ? 'Apagar rascunho' : 'Excluir'}</button>` : '';
   const novaR = !simulando() && repliesOf(n.id).some(r => r.para_id === me.id && !r.lida_em);
   const resp = podeResp(n) && !RDRAFT.has(n.id) ? `<button class="lnk rbtn" data-reply="${n.id}" type="button">Responder</button>` : '';
   return `<div class="nit${novo ? ' novo' : ''}" data-id="${n.id}"><div class="nav">${avatarHtml(n.de_id, pname(n.de_id))}</div><div style="flex:1;min-width:0">
     <div class="nmeta">${quem}<span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="cod" title="Código desta anotação">${cod(n)}</span><span class="when">${hora(new Date(n.criado_em))}</span>${novo ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova</span>' : ''}${novaR ? '<span class="tp" style="background:rgba(229,72,77,.12);color:#b4262b">Nova resposta</span>' : ''}</div>
     ${n.trecho ? `<div class="nquote" title="Clique para ver o trecho inteiro">${esc(n.trecho)}</div>` : ''}<div class="ntxt">${esc(n.texto)}</div>
-    <div class="nact">${resp}${conv}${status}${apagar}</div>${threadHtml(n)}</div></div>`;
+    <div class="nact">${resp}${conv}${status}${concl}${fim}${apagar}</div>${threadHtml(n)}</div></div>`;
 }
 
 /* quadro (kanban) dos pontos de melhoria */
@@ -1230,7 +1241,7 @@ async function kbMove(id, to) {
   n.status = to; renderNotes(); renderDrawerNotes();
 }
 $('nView').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; nview = b.dataset.v; renderNotes(); };
-$('nList').addEventListener('click', e => { const b = e.target.closest('[data-kbm]'); if (b) kbMove(b.dataset.kbm, b.dataset.to); });
+$('nList').addEventListener('click', e => { const b = e.target.closest('[data-kbm]'); if (b) kbMove(b.dataset.kbm, b.dataset.to); const g = e.target.closest('[data-pg]'); if (g && !g.disabled) { npage = +g.dataset.pg; renderNotes(); $('nList').scrollIntoView({ block: 'start' }); } });
 $('nList').addEventListener('change', e => { if (e.target.id === 'kbWho') { kbWho = e.target.value; renderNotes(); } });
 $('nList').addEventListener('dragstart', e => { const c = e.target.closest('.kcard'); if (c) { kbDrag = c.dataset.id; c.classList.add('drag'); } });
 $('nList').addEventListener('dragend', () => { kbDrag = null; if (nview === 'quadro') renderNotes(); });
@@ -1250,19 +1261,23 @@ function renderNotes() {
   pv.textContent = !simulando() ? '' : sp ? `Prévia como ${sp.nome}: a lista de destinos é a dela e nada é enviado. Aparecem só as anotações dela que você tem permissão de ver (rascunhos privados nunca aparecem).` : `Não encontrei ${viewAs} na lista de acessos, então não dá para simular esta aba.`;
   const boxes = [['rec', 'Recebidas'], ['env', 'Enviadas'], ['ras', 'Rascunhos']];
   if (!simulando() && notesOf('time').length) boxes.push(['time', 'Do time']);
+  boxes.push(['conc', 'Concluídos']);
   $('nBoxes').innerHTML = boxes.map(([k, l]) => `<button type="button" class="nb${nbox === k ? ' on' : ''}" data-b="${k}">${l} (${notesOf(k).length})</button>`).join('');
   const L = notesOf(nbox);
   $('nCards').innerHTML = TIPOS.map(([k, l]) => `<button type="button" class="ncard${nft === k ? ' on' : ''}" data-t="${k}"><span class="tp ${k}">${l}</span><div class="v">${L.filter(n => n.tipo === k).length}</div></button>`).join('');
   $('ngTipo').classList.toggle('on', ngrp === 'tipo'); $('ngPessoa').classList.toggle('on', ngrp === 'pessoa');
-  const S = L.filter(n => !nft || n.tipo === nft);
+  const S0 = L.filter(n => !nft || n.tipo === nft).sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em));
+  const pages = Math.max(1, Math.ceil(S0.length / NPP)); if (npage >= pages) npage = pages - 1;
+  const S = S0.slice(npage * NPP, (npage + 1) * NPP);
   let h = '';
-  if (!S.length) h = `<div class="vempty">${nbox === 'rec' ? 'Quando alguém enviar uma anotação para você, ela aparece aqui.' : nbox === 'env' ? 'Você ainda não enviou anotações.' : nbox === 'ras' ? 'Seus rascunhos privados aparecem aqui. Só você vê.' : 'Nada por aqui.'} Use "Escrever anotação" ou abra uma conversa para anotar um trecho.</div>`;
+  if (!S.length) h = `<div class="vempty">${nbox === 'rec' ? 'Quando alguém enviar uma anotação para você, ela aparece aqui.' : nbox === 'conc' ? 'Quando você concluir um ponto de atenção, um elogio ou uma dúvida, ele aparece aqui.' : nbox === 'env' ? 'Você ainda não enviou anotações.' : nbox === 'ras' ? 'Seus rascunhos privados aparecem aqui. Só você vê.' : 'Nada por aqui.'} Use "Escrever anotação" ou abra uma conversa para anotar um trecho.</div>`;
   else if (ngrp === 'tipo') h = TIPOS.map(([k, l]) => { const G = S.filter(n => n.tipo === k); return G.length ? `<div class="ngroup"><span class="tp ${k}">${l} · ${G.length}</span>${k === 'melhoria' ? ' <span class="when" style="font-size:12px;color:var(--muted)">para focar</span>' : ''}${G.map(n => noteItem(n, nbox)).join('')}</div>` : ''; }).join('');
   else {
     const P = new Map();
     S.forEach(n => { const k = nbox === 'rec' ? n.de_id : n.para_id; (P.get(k) || P.set(k, []).get(k)).push(n); });
     h = [...P.entries()].map(([k, G]) => `<div class="ngroup"><b>${nbox === 'rec' ? 'De ' : nbox === 'env' ? 'Para ' : ''}${esc(pname(k))} · ${G.length}</b>${G.map(n => noteItem(n, nbox)).join('')}</div>`).join('');
   }
+  if (S0.length > NPP) h += `<div class="pager"><button type="button" data-pg="${npage - 1}" ${npage ? '' : 'disabled'}>‹ Anterior</button><span>Página ${npage + 1} de ${pages} · ${S0.length} anotações</span><button type="button" data-pg="${npage + 1}" ${npage + 1 < pages ? '' : 'disabled'}>Próxima ›</button></div>`;
   keepFocus($('nList'), () => { $('nList').innerHTML = h; });
 }
 
@@ -1339,10 +1354,10 @@ function renderDrawerNotes(force) {
 }
 
 /* cliques */
-$('nBoxes').onclick = e => { const b = e.target.closest('[data-b]'); if (b) { nbox = b.dataset.b; nft = null; renderNotes(); } };
-$('nCards').onclick = e => { const b = e.target.closest('[data-t]'); if (b) { nft = nft === b.dataset.t ? null : b.dataset.t; renderNotes(); } };
-$('ngTipo').onclick = () => { ngrp = 'tipo'; renderNotes(); };
-$('ngPessoa').onclick = () => { ngrp = 'pessoa'; renderNotes(); };
+$('nBoxes').onclick = e => { const b = e.target.closest('[data-b]'); if (b) { nbox = b.dataset.b; nft = null; npage = 0; renderNotes(); } };
+$('nCards').onclick = e => { const b = e.target.closest('[data-t]'); if (b) { nft = nft === b.dataset.t ? null : b.dataset.t; npage = 0; renderNotes(); } };
+$('ngTipo').onclick = () => { ngrp = 'tipo'; npage = 0; renderNotes(); };
+$('ngPessoa').onclick = () => { ngrp = 'pessoa'; npage = 0; renderNotes(); };
 async function noteClick(e) {
   const go = e.target.closest('[data-goto]');
   if (go) { goNote(go.dataset.goto); return; }
@@ -1360,6 +1375,14 @@ async function noteClick(e) {
   }
   const rc = e.target.closest('[data-rcancel]');
   if (rc) { RDRAFT.delete(rc.dataset.rcancel); renderNotes(); renderDrawerNotes(); return; }
+  const dn = e.target.closest('[data-done],[data-undo]');
+  if (dn) {
+    const id = dn.dataset.done || dn.dataset.undo, n = NOTES.find(x => x.id === id); if (!n || n.para_id !== me.id) return;
+    const v = dn.dataset.done ? new Date().toISOString() : null;
+    const { error } = await supa.from('anotacoes').update({ concluida_em: v }).eq('id', id);
+    if (error) { alert('Não foi possível atualizar.'); return; }
+    n.concluida_em = v; renderNotes(); renderDrawerNotes(); return;
+  }
   const rs = e.target.closest('[data-rsend]');
   if (rs) return sendReply(rs.dataset.rsend);
   const del = e.target.closest('[data-del]');
