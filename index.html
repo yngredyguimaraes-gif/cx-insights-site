@@ -809,7 +809,11 @@ const INTERCOM_APP = 'ky1co8zo';   // ID do workspace da Allu no Intercom (o có
 const intercomUrl = id => INTERCOM_APP ? `https://app.intercom.com/a/inbox/${INTERCOM_APP}/inbox/conversation/${encodeURIComponent(id)}` : '';
 const cod = n => 'AN-' + String(n.codigo || 0).padStart(4, '0');
 const hora = d => d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
-let MSGS = null, MSGSIG = '';
+let MSGS = null, MSGSIG = '', pendGoto = null;
+function goNote(id) {
+  const t = $('transcr') && $('transcr').querySelector(`[data-mn="${id}"]`); if (!t) return false;
+  t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash'); return true;
+}
 const notasDoTrecho = (cid, q) => NOTES.filter(n => n.conversation_id === cid && !n.resposta_a && n.trecho === q && (!n.privado || n.de_id === actor().id));
 function renderMessages(list, c) {
   const box = $('transcr'); if (!box) return;
@@ -827,6 +831,7 @@ function renderMessages(list, c) {
       ns.map(n => `<div class="mnote ${cls === 'a' ? 'a' : ''}" data-mn="${n.id}"><div class="mh"><b>${esc(n.de_id === actor().id && !simulando() ? 'Você' : pname(n.de_id))}</b><span>→ ${esc(n.para_id === actor().id && !simulando() ? 'você' : pname(n.para_id))}</span><span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="cod">${cod(n)}</span><span>${hora(new Date(n.criado_em))}</span></div><div class="mt">${esc(n.texto)}</div></div>`).join('');
   }).join('');
   MSGSIG = sig;
+  if (pendGoto && goNote(pendGoto)) pendGoto = null;
 }
 function repaintMsgs() {
   if (!MSGS || MSGS.c.id !== drawerId || !$('transcr')) return;
@@ -844,7 +849,7 @@ async function loadMessages(c) {
     .eq('conversation_id', c.id).order('enviado_em', { ascending: true }).order('ordem', { ascending: true });
   if (drawerId !== c.id) return;           // outra conversa foi aberta enquanto carregava
   if (error) { const b = $('transcr'); if (b) b.textContent = 'Não foi possível carregar as mensagens: ' + error.message; return; }
-  renderMessages(data, c);
+  renderMessages(data, c); pendGoto = null;
 }
 const closeDrawer = () => $('drawer').classList.remove('open');
 $('dClose').onclick = closeDrawer;
@@ -1172,7 +1177,7 @@ function noteItem(n, box, noDrawer) {
     ? `<select data-st="${n.id}" aria-label="Situação do ponto de melhoria">${STATUS.map(([k, l]) => `<option value="${k}" ${n.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`
     : (n.tipo === 'melhoria' && n.status ? `<span class="tp analise">${STATUS_L[n.status]}</span>` : '');
   const conv = noDrawer ? (n.trecho ? `<a data-goto="${n.id}">Ver no texto ↑</a>` : '') : !n.conversation_id ? '<span>Sem conversa ligada</span>'
-    : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">Abrir conversa …${esc(n.conversation_id.slice(-8))}</a>`
+    : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">${n.trecho ? 'Abrir no trecho' : 'Abrir conversa'} …${esc(n.conversation_id.slice(-8))}</a>`
     : `<span title="Essa conversa não está mais no site, ou você não tem acesso a ela">Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`;
   const apagar = n.de_id === actor().id && !simulando() ? `<button class="lnk" data-del="${n.id}" type="button">${n.privado ? 'Apagar rascunho' : 'Excluir'}</button>` : '';
   const novaR = !simulando() && repliesOf(n.id).some(r => r.para_id === me.id && !r.lida_em);
@@ -1199,7 +1204,7 @@ function renderKanban() {
     const C = L.filter(n => (n.status || 'para_trabalhar') === k), i = KB_COLS.findIndex(c => c[0] === k);
     return `<div class="kcol" data-k="${k}"><div class="kch"><span>${l}</span><span>${C.length}</span></div>${k === 'trabalhando' && C.length > KB_LIM ? `<div class="kwip">Mais de ${KB_LIM} ao mesmo tempo. Foque em poucos.</div>` : ''}` +
       C.map(n => `<div class="kcard" ${meu ? 'draggable="true"' : ''} data-id="${n.id}"><div class="nmeta"><b>${esc(pname(n.de_id))}</b><span class="cod">${cod(n)}</span><span class="when">${hora(new Date(n.criado_em))}</span></div>${n.trecho ? `<div class="nquote" title="Clique para ver o trecho inteiro">${esc(n.trecho)}</div>` : ''}<p>${esc(n.texto)}</p>
-        <div class="nact">${!n.conversation_id ? '<span>Sem conversa ligada</span>' : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">Abrir conversa …${esc(n.conversation_id.slice(-8))}</a>` : `<span>Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`}</div>
+        <div class="nact">${!n.conversation_id ? '<span>Sem conversa ligada</span>' : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">${n.trecho ? 'Abrir no trecho' : 'Abrir conversa'} …${esc(n.conversation_id.slice(-8))}</a>` : `<span>Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`}</div>
         ${meu ? `<div class="kmv">${i > 0 ? `<button data-kbm="${n.id}" data-to="${KB_COLS[i - 1][0]}" type="button">← Voltar</button>` : ''}${i < 2 ? `<button data-kbm="${n.id}" data-to="${KB_COLS[i + 1][0]}" type="button">${i === 0 ? 'Começar' : 'Evoluí'} →</button>` : ''}</div>` : ''}</div>`).join('') +
       (C.length ? '' : `<div class="note" style="padding:8px 4px">${meu ? 'Arraste um cartão para cá.' : 'Nenhum ponto aqui.'}</div>`) + '</div>';
   };
@@ -1330,10 +1335,10 @@ $('ngTipo').onclick = () => { ngrp = 'tipo'; renderNotes(); };
 $('ngPessoa').onclick = () => { ngrp = 'pessoa'; renderNotes(); };
 async function noteClick(e) {
   const go = e.target.closest('[data-goto]');
-  if (go) { const t = $('transcr') && $('transcr').querySelector(`[data-mn="${go.dataset.goto}"]`); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash'); } return; }
+  if (go) { goNote(go.dataset.goto); return; }
   const qt = e.target.closest('.nquote'); if (qt) { qt.classList.toggle('open'); return; }
   const a = e.target.closest('[data-conv]');
-  if (a) { const c = DATA.find(x => x.id === a.dataset.conv); if (c) openDrawer(c); else alert('Essa conversa não está entre as que você pode ver agora.'); return; }
+  if (a) { const c = DATA.find(x => x.id === a.dataset.conv); const nid = (a.closest('[data-id]') || {}).dataset; if (c) { pendGoto = nid && nid.id; openDrawer(c); } else alert('Essa conversa não está entre as que você pode ver agora.'); return; }
   if (simulando()) return;
   const host = e.target.closest('#dBody') || $('nList');
   const rb = e.target.closest('[data-reply]');
