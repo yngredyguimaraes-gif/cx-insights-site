@@ -285,6 +285,8 @@
   /* notas estilo Notion */
   .msg.anot{box-shadow:0 0 0 2px rgba(240,180,0,.55)}
   .mnote{max-width:80%;margin:-3px 0 10px 22px;background:#fffbea;border:1px solid #f1e2a6;border-left:4px solid #f0b400;border-radius:10px;padding:7px 10px;font-size:12.5px;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .mnote.flash{animation:fl 1.6s ease}
+  @keyframes fl{0%,60%{background:#ffe27a;box-shadow:0 0 0 3px rgba(240,180,0,.6)}100%{background:#fffbea}}
   .mnote.a{margin-left:auto;margin-right:22px}
   .mnote .mh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-bottom:3px}
   .mnote .mh b{color:var(--ink)}
@@ -822,7 +824,7 @@ function renderMessages(list, c) {
     const q = (quem + ': ' + pre + (m.texto || '')).slice(0, 600), ns = notasDoTrecho(c.id, q);
     ns.forEach(n => { sig += n.id + n.texto; });
     return `<div class="msg ${cls}${ns.length ? ' anot' : ''}">${esc(pre + (m.texto || ''))}<small>${esc(quem)} · ${hora(m.enviado_em ? new Date(m.enviado_em) : null)}</small><button class="qbtn" type="button" data-q="${esc(q)}">Anotar trecho</button></div>` +
-      ns.map(n => `<div class="mnote ${cls === 'a' ? 'a' : ''}"><div class="mh"><b>${esc(n.de_id === actor().id && !simulando() ? 'Você' : pname(n.de_id))}</b><span>→ ${esc(n.para_id === actor().id && !simulando() ? 'você' : pname(n.para_id))}</span><span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="cod">${cod(n)}</span><span>${hora(new Date(n.criado_em))}</span></div><div class="mt">${esc(n.texto)}</div></div>`).join('');
+      ns.map(n => `<div class="mnote ${cls === 'a' ? 'a' : ''}" data-mn="${n.id}"><div class="mh"><b>${esc(n.de_id === actor().id && !simulando() ? 'Você' : pname(n.de_id))}</b><span>→ ${esc(n.para_id === actor().id && !simulando() ? 'você' : pname(n.para_id))}</span><span class="tp ${n.tipo}">${TIPO_L[n.tipo]}</span><span class="cod">${cod(n)}</span><span>${hora(new Date(n.criado_em))}</span></div><div class="mt">${esc(n.texto)}</div></div>`).join('');
   }).join('');
   MSGSIG = sig;
 }
@@ -1159,7 +1161,7 @@ function threadHtml(n) {
   return (reps.length ? `<div class="nreps">${reps.map(repItem).join('')}</div>` : '') + form;
 }
 
-function noteItem(n, box) {
+function noteItem(n, box, noDrawer) {
   const outro = box === 'rec' ? n.de_id : n.para_id;
   const eu = id => !simulando() && id === actor().id;
   const quem = n.privado ? '<b>Rascunho privado</b> <span class="to">só você vê</span>'
@@ -1169,7 +1171,7 @@ function noteItem(n, box) {
   const status = meuStatus
     ? `<select data-st="${n.id}" aria-label="Situação do ponto de melhoria">${STATUS.map(([k, l]) => `<option value="${k}" ${n.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`
     : (n.tipo === 'melhoria' && n.status ? `<span class="tp analise">${STATUS_L[n.status]}</span>` : '');
-  const conv = !n.conversation_id ? '<span>Sem conversa ligada</span>'
+  const conv = noDrawer ? (n.trecho ? `<a data-goto="${n.id}">Ver no texto ↑</a>` : '') : !n.conversation_id ? '<span>Sem conversa ligada</span>'
     : DATA.some(c => c.id === n.conversation_id) ? `<a data-conv="${esc(n.conversation_id)}">Abrir conversa …${esc(n.conversation_id.slice(-8))}</a>`
     : `<span title="Essa conversa não está mais no site, ou você não tem acesso a ela">Conversa …${esc(n.conversation_id.slice(-8))} indisponível</span>`;
   const apagar = n.de_id === actor().id && !simulando() ? `<button class="lnk" data-del="${n.id}" type="button">${n.privado ? 'Apagar rascunho' : 'Excluir'}</button>` : '';
@@ -1309,7 +1311,7 @@ function renderDrawerNotes(force) {
   if (!$('dNotesList')) box.innerHTML = '<div id="dNotesList"></div><div id="dNotesComp"></div>';
   const L = NOTES.filter(n => n.conversation_id === drawerId && (!n.privado || n.de_id === actor().id));
   const hl = `<div class="vsecs" style="font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em">Anotações desta conversa (${L.length})</div>` +
-    (L.length ? L.map(n => noteItem(n, isTime(n) ? 'time' : n.de_id === actor().id ? 'env' : 'rec')).join('') : '<p class="note">Ainda não há anotações aqui. Use "Anotar trecho" nas mensagens para citar uma parte da conversa.</p>');
+    (L.length ? L.map(n => noteItem(n, isTime(n) ? 'time' : n.de_id === actor().id ? 'env' : 'rec', true)).join('') : '<p class="note">Ainda não há anotações aqui. Use "Anotar trecho" nas mensagens para citar uma parte da conversa.</p>');
   keepFocus($('dNotesList'), () => { $('dNotesList').innerHTML = hl; });
   repaintMsgs();
   /* o campo de escrever só é montado de novo se estiver vazio, para nunca apagar o que a pessoa está digitando */
@@ -1327,6 +1329,8 @@ $('nCards').onclick = e => { const b = e.target.closest('[data-t]'); if (b) { nf
 $('ngTipo').onclick = () => { ngrp = 'tipo'; renderNotes(); };
 $('ngPessoa').onclick = () => { ngrp = 'pessoa'; renderNotes(); };
 async function noteClick(e) {
+  const go = e.target.closest('[data-goto]');
+  if (go) { const t = $('transcr') && $('transcr').querySelector(`[data-mn="${go.dataset.goto}"]`); if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash'); } return; }
   const qt = e.target.closest('.nquote'); if (qt) { qt.classList.toggle('open'); return; }
   const a = e.target.closest('[data-conv]');
   if (a) { const c = DATA.find(x => x.id === a.dataset.conv); if (c) openDrawer(c); else alert('Essa conversa não está entre as que você pode ver agora.'); return; }
