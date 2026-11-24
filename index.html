@@ -602,6 +602,7 @@ supa.auth.onAuthStateChange((event, session) => {
   if (session) setTimeout(() => bootstrap(session), 0); else showLogin();
 });
 function showLogin() {
+  if (me) { KEEP.set('tab', null); KEEP.set('conv', null); }   // saiu da conta: o F5 não deve reabrir nada
   me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); MYMARK = new Map(); GTAGS = new Map(); SUGS = []; sugOpen(false); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
   $('app').classList.add('hidden'); $('login').classList.remove('hidden');
 }
@@ -650,6 +651,9 @@ async function fetchAll() {
 }
 const canSeeAll = () => me.perfil === 'lider' || me.ver_todos;
 
+/* F5 continua na mesma aba e na mesma conversa (guardado só nesta aba do navegador) */
+const KEEP = { get(k) { try { return sessionStorage.getItem('cx_' + k); } catch (_) { return null; } }, set(k, v) { try { v == null ? sessionStorage.removeItem('cx_' + k) : sessionStorage.setItem('cx_' + k, v); } catch (_) {} } };
+let RESTORE = { tab: KEEP.get('tab'), conv: KEEP.get('conv') };
 async function startApp(rows) {
   $('loading').classList.remove('hidden'); msg($('loadError'), '', '');
   DATA = rows || await fetchAll();
@@ -664,6 +668,12 @@ async function startApp(rows) {
   loadTeamWeekly();
   loadReviews(); loadMarks(); $('tabSug').classList.toggle('hidden', !souDono()); loadSugs();
   if (me.perfil === 'lider') loadPeople();
+  if (RESTORE) {
+    const r = RESTORE; RESTORE = null;
+    const t = r.tab && document.querySelector(`.tab[data-tab="${r.tab}"]`);
+    if (t && !t.classList.contains('hidden') && r.tab !== 'sem') t.click();
+    const c = r.conv && DATA.find(x => x.id === r.conv); if (c) openDrawer(c);
+  }
 }
 function applyView() {
   const sim = !!viewAs;
@@ -798,7 +808,7 @@ function openDrawer(c, fila) {
     <p class="note" style="margin-top:12px">Telefones, CPF, CNPJ, CEP e e-mails foram ocultados nas mensagens.</p>
     <div id="dNotes" class="dnotes"></div>`;
   $('drawer').classList.add('open');
-  drawerQuote = ''; MSGS = null;
+  drawerQuote = ''; MSGS = null; KEEP.set('conv', c.id);
   const ic = $('dIc'), icu = intercomUrl(c.id); ic.classList.toggle('hidden', !icu); if (icu) ic.href = icu;
   loadMessages(c);
   drawerId = c.id; renderDrawerNotes(); dmOpen = false; renderDrawerMarks(c);
@@ -851,7 +861,7 @@ async function loadMessages(c) {
   if (error) { const b = $('transcr'); if (b) b.textContent = 'Não foi possível carregar as mensagens: ' + error.message; return; }
   renderMessages(data, c); pendGoto = null;
 }
-const closeDrawer = () => $('drawer').classList.remove('open');
+const closeDrawer = () => { $('drawer').classList.remove('open'); KEEP.set('conv', null); };
 $('dClose').onclick = closeDrawer;
 /* clicar fora do painel fecha a conversa (se houver texto não enviado, pergunta antes) */
 document.addEventListener('pointerdown', e => {
@@ -900,7 +910,7 @@ $('addForm').addEventListener('submit', async e => {
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
   ['sem', 'conv', 'ana', 'dev', 'acc', 'sug'].forEach(k => $('tab-' + k).classList.toggle('hidden', t.dataset.tab !== k || ($('loading') && !$('loading').classList.contains('hidden'))));
-  closeDrawer();
+  closeDrawer(); KEEP.set('tab', t.dataset.tab);
   if (t.dataset.tab === 'ana') renderDados();
   if (t.dataset.tab === 'dev') renderNotes();
   if (t.dataset.tab === 'sem') renderSemana();
