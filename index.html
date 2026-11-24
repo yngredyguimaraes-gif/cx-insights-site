@@ -1074,7 +1074,7 @@ function rankItems(L, key, f, o) {
   L.forEach(c => { const k = key(c); (m.get(k) || m.set(k, []).get(k)).push(c); });
   return [...m.entries()].map(([k, g]) => ({ k, g, v: f(g) })).filter(x => x.v != null && x.g.length >= (o.min || 1))
     .sort((a, b) => o.asc ? a.v - b.v : b.v - a.v)
-    .map(x => ({ label: o.short ? shortName(x.k) : x.k, value: x.v, n: x.g.length, tip: `${x.k}: ${o.fmt(x.v)} · ${x.g.length} conversa(s)` }));
+    .map(x => ({ label: (o.short ? shortName(x.k) : x.k) + (o.flag && x.g.length < o.flag ? ' · poucos dados' : ''), value: x.v, n: x.g.length, tip: `${x.k}: ${o.fmt(x.v)} · ${x.g.length} conversa(s)` }));
 }
 const shortName = n => { const p = String(n).trim().split(/\s+/); return p.length > 2 ? p[0] + ' ' + p[p.length - 1] : n; };
 const csatAvg = g => g.length ? g.reduce((s, c) => s + c.csat, 0) / g.length : null;
@@ -1119,7 +1119,7 @@ function renderDados() {
   if (porAtendente) {
     cards.push(rankCard('CSAT médio por atendente', 'Só quem tem 3 conversas ou mais no período', rankItems(L, c => c.agent, csatAvg, { fmt: v => v.toFixed(2), min: 3, short: true }), { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
     cards.push(rankCard('FCR por atendente', 'Só quem tem 3 conversas ou mais com FCR conhecido no período', rankItems(L.filter(fcrVal), c => c.agent, fcrPct, { fmt: v => Math.round(v) + '%', min: 3, short: true }), { fmt: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
-    cards.push(rankCard('Tempo médio por resposta, por atendente', 'Média do tempo entre a mensagem do cliente e a resposta da atendente, sem esperas de 12h ou mais (estimativa). Do mais rápido ao mais lento. Só quem tem 3 conversas ou mais no período', rankItems(L.filter(c => c.gap != null), c => c.agent, g => { const m = avg(g.map(c => c.gap)); return m == null ? null : m / 60; }, { fmt: fmtMin, min: 3, asc: true, short: true }), { fmt: fmtMin, col: 'Tempo médio por resposta' }));
+    cards.push(rankCard('Tempo médio por resposta, por atendente', 'Média do tempo entre a mensagem do cliente e a resposta da atendente, sem esperas de 12h ou mais (estimativa). Do mais rápido ao mais lento. Aparecem todos que tiveram resposta medida no período; quem tem menos de 3 conversas vem marcado como "poucos dados"', rankItems(L.filter(c => c.gap != null), c => c.agent, g => { const m = avg(g.map(c => c.gap)); return m == null ? null : m / 60; }, { fmt: fmtMin, flag: 3, asc: true, short: true }), { fmt: fmtMin, col: 'Tempo médio por resposta' }));
   }
   cards.push(rankCard('Principais motivos', 'Conversas por motivo classificado (os 8 maiores)', rankItems(L, c => c.motivo || 'sem classificação', g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas', top: 8, key: 'motivos' }));
   cards.push(rankCard('CSAT médio por motivo', 'Do menor para o maior, para ver onde focar (só motivos com 3 conversas ou mais). Nota de 0 a 5', rankItems(L, c => c.motivo || 'sem classificação', csatAvg, { fmt: v => v.toFixed(2), min: 3, asc: true }), { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio', top: 8, key: 'csat-motivo' }));
