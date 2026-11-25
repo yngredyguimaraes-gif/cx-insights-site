@@ -656,10 +656,13 @@ async function bootstrap(session) {
 }
 
 /* ---------- 2) DADOS ---------- */
+/* assunto da conversa: a IA grava o código em inglês; o site mostra em português */
+const MOTIVO_PT = { logistics: 'Logística', cancel: 'Cancelamento', upgrade: 'Upgrade', refund: 'Reembolso', documentation: 'Documentação', sales: 'Vendas', assistance: 'Assistência', payment: 'Pagamento', general: 'Geral', devolution: 'Devolução', renewal: 'Renovação', recovery: 'Recuperação', cadastro: 'Cadastro', password: 'Senha' };
+const motivoPt = m => { if (!m) return m; const k = String(m).trim(), v = MOTIVO_PT[k.toLowerCase()]; return v || k.charAt(0).toUpperCase() + k.slice(1); };
 const mapRow = r => ({
   fcrParcial: r.fcr_parcial,
   id: r.conversation_id, date: new Date(r.aberta_em), fim: r.encerrada_em ? new Date(r.encerrada_em) : null,
-  avaliado: r.avaliado_em ? new Date(r.avaliado_em) : null, canal: r.canal, motivo: r.motivo,
+  avaliado: r.avaliado_em ? new Date(r.avaliado_em) : null, canal: r.canal, motivo: motivoPt(r.motivo),
   cliente: r.cliente_nome || '', agent: r.atendente_nome || '(sem nome)', csat: r.csat_nota, comment: r.csat_comentario, resolvido: r.resolvido_cliente,
   fcr: r.fcr, dur: r.tempo_atendimento_s, pausas: r.pausas_descontadas || 0,
   gap: r.tempo_entre_respostas_s == null ? null : Number(r.tempo_entre_respostas_s), first: r.primeira_resposta_s, longa: !!r.espera_longa
