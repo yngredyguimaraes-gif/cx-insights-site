@@ -59,7 +59,7 @@
   tbody tr:hover{background:rgba(35,36,42,.04)}
   .score{display:inline-block;min-width:28px;text-align:center;border-radius:999px;padding:2px 8px;font-weight:700;color:#fff}
   .s5,.s4{background:var(--good)} .s3{background:var(--warn)} .s2,.s1{background:var(--bad)}
-  .tag{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
+  .tag{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);white-space:nowrap}
   .tag.yes{color:var(--good);border-color:var(--good)} .tag.no{color:var(--bad);border-color:var(--bad)}
   .empty{padding:30px;text-align:center;color:var(--muted)}
 
@@ -449,6 +449,7 @@
       <div class="kpis" id="kpis"></div>
       <div class="filters">
         <div class="fgrid">
+          <div><label for="fBusca">Buscar conversa</label><input id="fBusca" type="search" inputmode="numeric" autocomplete="off" placeholder="Número do protocolo"></div>
           <div><label for="fPeriod">Período (atalhos)</label>
             <select id="fPeriod"><option value="">Todo o período</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="mes">Este mês</option><option value="mesant">Mês passado</option><option value="custom">Personalizado</option></select></div>
           <div><label for="fFrom">De</label><input id="fFrom" type="date"></div>
@@ -756,11 +757,14 @@ const SEM_FILA = '__sem';
 const daFila = (c, v) => !v || (v === SEM_FILA ? !c.fila : c.fila === v);
 
 /* ---------- 3) FILTROS E ORDENAÇÃO ---------- */
-const FILTERS = ['fPeriod', 'fFrom', 'fTo', 'fAgent', 'fFila', 'fCsat', 'fFcr', 'fFav'];
+const FILTERS = ['fBusca', 'fPeriod','fFrom', 'fTo', 'fAgent', 'fFila', 'fCsat', 'fFcr', 'fFav'];
 const selTags = new Set();      // tags marcadas no filtro (vale qualquer uma delas)
 function filtered() {
   const f = { agent: $('fAgent').value, csat: $('fCsat').value, fcr: $('fFcr').value, fav: $('fFav').value };
   const [pa, pb] = periodRange('fPeriod', 'fFrom', 'fTo');
+  /* busca por protocolo: procura em todas as conversas que a pessoa vê, sem aplicar os outros filtros */
+  const busca = $('fBusca').value.replace(/\D/g, '');
+  if (busca) return scope().filter(c => String(c.id).includes(busca));
   return scope().filter(c => {
     if (pa && c.date < pa) return false;
     if (pb && c.date >= pb) return false;
@@ -830,6 +834,7 @@ function render() {
   renderAnalysis();
 }
 $('more').onclick = () => { shown += PAGE; render(); };
+$('fBusca').addEventListener('input', () => { shown = PAGE; render(); });
 FILTERS.filter(id => !/^f(Period|From|To)$/.test(id)).forEach(id => $(id).addEventListener('change', () => { shown = PAGE; render(); }));
 $('clear').onclick = () => { FILTERS.forEach(id => $(id).value = ''); selTags.clear(); setPeriod('fPeriod', 'fFrom', 'fTo', DEFAULT_PERIOD); shown = PAGE; render(); };
 
@@ -856,7 +861,7 @@ function openDrawer(c, fila) {
         <div style="border-top:1px solid var(--line);padding-top:8px;margin-top:2px"><div style="font-size:12px;color:var(--muted);margin-bottom:3px">Comentário do cliente</div>${c.comment ? `<div style="font-size:13.5px;white-space:pre-wrap;word-break:break-word">${esc(c.comment)}</div>` : '<div style="font-size:13px;color:var(--muted)">Sem comentário.</div>'}</div></div>
       <div class="fcard"><div class="flb">Indicadores</div>
         ${kv('(FCR) Resolvido no primeiro contato?', fcrTagC(c))}${kv('1ª resposta', fmtSec(c.first) + (c.longa ? ' · espera longa' : ''))}
-        ${kv('Atendimento', fmtSec(c.dur))}${kv('Entre respostas (média)', fmtSec(c.gap))}
+        ${kv('Atendimento', fmtSec(c.dur))}${kv('Entre respostas (média)', c.gap == null ? '<span style="font-weight:400;color:var(--muted);font-size:12px">sem resposta a medir</span>' : fmtSec(c.gap))}
         ${c.pausas ? `<div style="font-size:11.5px;color:var(--muted);margin-top:6px">${c.pausas} pausa(s) de 12h ou mais descontada(s) do tempo de atendimento (estimado).</div>` : ''}</div>
       <div class="fcard"><div class="flb">Conversa</div>
         ${kv('Atendente', esc(c.agent))}${kv('Canal', esc(c.canal || '—'))}${kv('Motivo', esc(c.motivo || 'sem classificação'))}${kv('Fila', esc(c.fila || 'sem fila identificada'))}
