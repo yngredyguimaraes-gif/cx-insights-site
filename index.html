@@ -271,6 +271,19 @@
   /* drawer */
   #drawer{position:fixed;top:0;right:0;height:100%;width:min(980px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;z-index:10}
   #drawer.open{transform:none}
+  #drill{position:fixed;top:0;right:0;height:100%;width:min(520px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);visibility:hidden;transition:transform .2s,visibility .2s;display:flex;flex-direction:column;z-index:9}
+  #drill.open{transform:none;visibility:visible}
+  .drhead{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;padding:16px;border-bottom:1px solid var(--line)}
+  .drhead h3{margin:0;font-size:16px}
+  #drillSub{font-size:12px;color:var(--muted);margin-top:4px}
+  #drillList{overflow:auto;flex:1;padding:4px 16px 16px}
+  .drow{display:flex;gap:12px;justify-content:space-between;align-items:center;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:10px 4px;font:inherit;color:inherit;cursor:pointer}
+  .drow:hover{background:var(--bg)}
+  .drow .dmain{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .drow .dmain b{font-size:13.5px}
+  .drow small{font-size:12px;color:var(--muted)}
+  .drow .dside{display:flex;flex-direction:column;gap:4px;align-items:flex-end;font-size:12px;white-space:nowrap}
+  [data-drill]{cursor:pointer}
   .d-head{padding:16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
   .d-body{padding:0;overflow:hidden;flex:1;min-height:0}
   .dcols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);height:100%}
@@ -548,6 +561,10 @@
   <div class="d-body" id="dBody"></div>
 </aside>
 
+<aside id="drill" aria-label="Conversas deste número">
+  <div class="drhead"><div><h3 id="drillTitle"></h3><div id="drillSub"></div></div><button type="button" class="btn ghost sm" id="drillClose" aria-label="Fechar a lista">Fechar</button></div>
+  <div id="drillList"></div>
+</aside>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" integrity="sha384-GFr3yTh5lJznCbZfpTtXnwboFsxqtTQoeTZCRHhE0579KrRmlCzen5AA8ohaB5ug" crossorigin="anonymous"></script>
 <script>
 /* ---------- 0) CONEXÃO ----------
@@ -627,7 +644,7 @@ supa.auth.onAuthStateChange((event, session) => {
 });
 function showLogin() {
   if (me) { KEEP.set('tab', null); KEEP.set('conv', null); }   // saiu da conta: o F5 não deve reabrir nada
-  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); MYMARK = new Map(); GTAGS = new Map(); SALVAS = []; SUGS = []; CARDS = []; CARDSIG = ''; AVISOS = []; sugOpen(false); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
+  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); MYMARK = new Map(); GTAGS = new Map(); SALVAS = []; SUGS = []; CARDS = []; CARDSIG = ''; AVISOS = []; sugOpen(false); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer(); closeDrill();
   $('app').classList.add('hidden'); $('login').classList.remove('hidden');
 }
 async function bootstrap(session) {
@@ -714,7 +731,7 @@ function applyView() {
   if (NPEOPLE) renderNotes();
   FILTERS.forEach(id => { $(id).value = ''; }); selTags.clear(); $('dAgent').value = '';
   resetPeriods();
-  shown = PAGE; closeDrawer(); setupFilters(); fillTagFilter(); render();
+  shown = PAGE; closeDrawer(); closeDrill(); setupFilters(); fillTagFilter(); render();
   document.querySelector('.tab[data-tab=sem]').textContent = seesAllNow() ? 'Resumo da semana' : 'Minha semana';
   swInit(); renderSemana();
 }
@@ -1003,6 +1020,9 @@ function dadosList() {
   return scope().filter(c => (!a || c.date >= a) && (!b || c.date < b) && (!ag || c.agent === ag));
 }
 
+/* conversas por tras de cada numero da aba de dados (abre o painel da direita) */
+let DRILL = [];
+const drillAttr = g => g && g.length ? ` role="button" data-drill="${DRILL.push(g) - 1}"` : ' role="img"';
 /* colunas (série ao longo do tempo ou categorias ordenadas) */
 function colChart(items, o) {
   const vals = items.map(i => i.value).filter(v => v != null);
@@ -1018,7 +1038,7 @@ function colChart(items, o) {
   const slots = items.map((it, i) => {
     const pct = it.value == null ? 0 : Math.min(it.value / max * 100, 100);
     const lab = it.value != null && mark.has(i) ? `<span class="clab" style="bottom:calc(${pct}% + 3px)">${o.fmt(it.value)}</span>` : '';
-    return `<div class="cslot" tabindex="0" role="img" aria-label="${esc(it.tip)}" data-tip="${esc(it.tip)}"><div class="cbar${it.hi ? ' hi' : ''}${it.lo ? ' lo' : ''}" style="height:${pct}%"></div>${lab}</div>`;
+    return `<div class="cslot" tabindex="0"${drillAttr(it.g)} aria-label="${esc(it.tip)}" data-tip="${esc(it.tip)}"><div class="cbar${it.hi ? ' hi' : ''}${it.lo ? ' lo' : ''}" style="height:${pct}%"></div>${lab}</div>`;
   }).join('');
   const xl = items.map((it, i) => `<span>${i % step === 0 ? esc(it.label) : ''}</span>`).join('');
   return `<div class="cc"><div class="cy">${y}</div><div class="cmain"><div class="cplot">${gl}<div class="cbars">${slots}</div></div><div class="cx">${xl}</div></div></div>`;
@@ -1030,7 +1050,7 @@ function rowChart(items, o) {
   const max = o.max || Math.max(...items.map(i => i.value), 0) || 1;
   return '<div class="rc">' + items.map(it => {
     const w = Math.max(it.value / max * 78, 0.5);
-    return `<div class="rrow" tabindex="0" role="img" aria-label="${esc(it.tip)}" data-tip="${esc(it.tip)}"><span class="rname" title="${esc(it.label)}">${esc(it.label)}</span><div class="rtrack"><div class="rbar" style="width:${w}%"></div><span class="rval" style="left:calc(${w}% + 6px)">${o.fmt(it.value)}</span></div></div>`;
+    return `<div class="rrow" tabindex="0"${drillAttr(it.g)} aria-label="${esc(it.tip)}" data-tip="${esc(it.tip)}"><span class="rname" title="${esc(it.label)}">${esc(it.label)}</span><div class="rtrack"><div class="rbar" style="width:${w}%"></div><span class="rval" style="left:calc(${w}% + 6px)">${o.fmt(it.value)}</span></div></div>`;
   }).join('') + '</div>';
 }
 
@@ -1063,7 +1083,7 @@ function weeklySeries(L, f, o, g = curGran) {
   const keys = [...map.keys()].sort((a, b) => a - b), out = [];
   for (let d = new Date(keys[0]); +d <= keys[keys.length - 1]; d = nextBucket(d, g)) {
     const grp = map.get(+d) || [], v = grp.length ? f(grp) : null;
-    out.push({ label: bucketLbl(d, g), value: v, n: grp.length, tip: `${bucketTip(d, g)}: ${v == null ? 'sem dados' : o.fmt(v)} · ${grp.length} conversa(s)` });
+    out.push({ label: bucketLbl(d, g), value: v, n: grp.length, g: o.use ? grp.filter(o.use) : grp, tip: `${bucketTip(d, g)}: ${v == null ? 'sem dados' : o.fmt(v)} · ${grp.length} conversa(s)` });
   }
   return out;
 }
@@ -1074,7 +1094,7 @@ function rankItems(L, key, f, o) {
   L.forEach(c => { const k = key(c); (m.get(k) || m.set(k, []).get(k)).push(c); });
   return [...m.entries()].map(([k, g]) => ({ k, g, v: f(g) })).filter(x => x.v != null && x.g.length >= (o.min || 1))
     .sort((a, b) => o.asc ? a.v - b.v : b.v - a.v)
-    .map(x => ({ label: (o.short ? shortName(x.k) : x.k) + (o.flag && x.g.length < o.flag ? ' · poucos dados' : ''), value: x.v, n: x.g.length, tip: `${x.k}: ${o.fmt(x.v)} · ${x.g.length} conversa(s)` }));
+    .map(x => ({ label: (o.short ? shortName(x.k) : x.k) + (o.flag && x.g.length < o.flag ? ' · poucos dados' : ''), value: x.v, n: x.g.length, g: x.g, tip: `${x.k}: ${o.fmt(x.v)} · ${x.g.length} conversa(s)` }));
 }
 const shortName = n => { const p = String(n).trim().split(/\s+/); return p.length > 2 ? p[0] + ' ' + p[p.length - 1] : n; };
 const csatAvg = g => g.length ? g.reduce((s, c) => s + c.csat, 0) / g.length : null;
@@ -1092,6 +1112,7 @@ function renderDados() {
   if (!me) return;
   const L = dadosList();
   curGran = pickGran(L); const u = GRAN[curGran].un;
+  DRILL = [];
   $('dCount').textContent = `${L.length} conversa(s) no período`;
   const fcrOk = L.filter(c => fcrVal(c));
   const mDur = median(L.map(c => c.dur)), mFirst = median(L.filter(c => !c.longa).map(c => c.first));
@@ -1102,18 +1123,18 @@ function renderDados() {
     ['FCR (inclui parciais)', fcrOk.length ? Math.round(fcrPct(L)) + '%' : '—'],
     ['Atendimento (mediana)', mDur == null ? '—' : fmtHm(mDur / 3600)],
     ['1ª resposta (mediana, sem esperas longas)', mFirst == null ? '—' : fmtMin(mFirst / 60)]
-  ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+  ].map(([l, v], i) => { const g = [L, L, L.filter(c => c.csat >= 4), fcrOk, L.filter(c => c.dur != null), L.filter(c => !c.longa && c.first != null)][i];
+    return `<div class="kpi"${g.length ? ' tabindex="0"' + drillAttr(g) : ''}><div class="v">${v}</div><div class="l">${l}</div></div>`; }).join('');
 
   const cards = [];
   cards.push(seriesCard(`CSAT médio por ${u}`, `Nota de 0 a 5, agrupada por ${u} de abertura da conversa`, weeklySeries(L, csatAvg, { fmt: v => v.toFixed(2) }), { fmt: v => v.toFixed(2), fmtTick: v => fmtN(v), max: 5, col: 'CSAT médio', labelAll: true }));
   cards.push(seriesCard(`Conversas avaliadas por ${u}`, `Quantas conversas com CSAT foram abertas em cada ${u}`, weeklySeries(L, g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
 
-  const dist = [1, 2, 3, 4, 5].map(n => { const k = L.filter(c => c.csat === n).length; return { label: 'Nota ' + n, value: k, n: k, tip: `Nota ${n}: ${k} conversa(s) · ${L.length ? Math.round(k / L.length * 100) : 0}%` }; });
+  const dist = [1, 2, 3, 4, 5].map(n => { const k = L.filter(c => c.csat === n).length; return { label: 'Nota ' + n, value: k, n: k, g: L.filter(c => c.csat === n), tip: `Nota ${n}: ${k} conversa(s) · ${L.length ? Math.round(k / L.length * 100) : 0}%` }; });
   cards.push(vcard('Como os clientes avaliaram', 'Número de conversas em cada nota de CSAT', colChart(dist, { fmt: v => String(Math.round(v)) }), ['Nota', 'Conversas', '% do total'], dist.map(d => [d.label, d.n, (L.length ? Math.round(d.n / L.length * 100) : 0) + '%'])));
 
-  cards.push(seriesCard(`FCR por ${u}`, 'Sem retorno em 7 dias. Conversas ainda dentro da janela contam como "até agora" e podem mudar', weeklySeries(L, fcrPct, { fmt: v => Math.round(v) + '%' }), { fmt: v => Math.round(v) + '%', fmtTick: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
-  cards.push(seriesCard(`Tempo de atendimento por ${u}`, 'Mediana, sem as pausas de 12h ou mais (estimativa)', weeklySeries(L, g => { const m = median(g.map(c => c.dur)); return m == null ? null : m / 3600; }, { fmt: fmtHm }), { fmt: fmtHm, fmtTick: v => fmtN(v) + ' h', col: 'Mediana' }));
-  cards.push(seriesCard(`1ª resposta por ${u}`, 'Mediana, sem as esperas longas', weeklySeries(L, g => { const m = median(g.filter(c => !c.longa).map(c => c.first)); return m == null ? null : m / 60; }, { fmt: fmtMin }), { fmt: fmtMin, fmtTick: v => fmtN(v) + ' min', col: 'Mediana' }));
+  cards.push(seriesCard(`Tempo de atendimento por ${u}`, 'Mediana, sem as pausas de 12h ou mais (estimativa)', weeklySeries(L, g => { const m = median(g.map(c => c.dur)); return m == null ? null : m / 3600; }, { fmt: fmtHm, use: c => c.dur != null }), { fmt: fmtHm, fmtTick: v => fmtN(v) + ' h', col: 'Mediana' }));
+  cards.push(seriesCard(`1ª resposta por ${u}`, 'Mediana, sem as esperas longas', weeklySeries(L, g => { const m = median(g.filter(c => !c.longa).map(c => c.first)); return m == null ? null : m / 60; }, { fmt: fmtMin, use: c => !c.longa && c.first != null }), { fmt: fmtMin, fmtTick: v => fmtN(v) + ' min', col: 'Mediana' }));
 
   const porAtendente = seesAllNow() && !$('dAgent').value;
   if (porAtendente) {
@@ -1131,10 +1152,36 @@ function renderDados() {
   cards.push(rankCard('Tempo de 1ª resposta por assunto', 'Mediana do tempo até a primeira resposta da atendente, sem as esperas longas. Da mais lenta para a mais rápida', rankItems(L.filter(c => !c.longa && c.first != null), sem, g => { const m = median(g.map(c => c.first)); return m == null ? null : m / 60; }, { fmt: fmtMin, ...ass }), { fmt: fmtMin, col: 'Mediana da 1ª resposta', key: 'ass-first' }));
   cards.push(rankCard('Resolução do cliente por assunto', 'Porcentagem de clientes que disseram, na avaliação, que o problema foi resolvido. Da menor para a maior. Conta só quem respondeu sim ou não', rankItems(L.filter(c => c.resolvido === 'sim' || c.resolvido === 'nao'), sem, resolPct, { fmt: v => Math.round(v) + '%', asc: true, ...ass }), { fmt: v => Math.round(v) + '%', max: 100, col: '% resolvido', key: 'ass-resol' }));
   const porFcr = [['FCR sim', L.filter(c => fcrVal(c) === 'sim')], ['FCR não', L.filter(c => fcrVal(c) === 'nao')]].filter(([, g]) => g.length)
-    .map(([k, g]) => ({ label: k, value: csatAvg(g), n: g.length, tip: `${k}: CSAT médio ${csatAvg(g).toFixed(2)} · ${g.length} conversa(s)` }));
+    .map(([k, g]) => ({ label: k, value: csatAvg(g), n: g.length, g, tip: `${k}: CSAT médio ${csatAvg(g).toFixed(2)} · ${g.length} conversa(s)` }));
   cards.push(rankCard('A nota muda quando o cliente volta?', 'CSAT médio de quem teve FCR e de quem voltou pelo mesmo motivo', porFcr, { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
   $('dCharts').innerHTML = cards.join('');
 }
+
+/* painel da direita com as conversas de um numero */
+let drillFrom = null;
+function openDrill(el) {
+  const g = DRILL[+el.dataset.drill]; if (!g) return;
+  const card = el.closest('.vcard');
+  const titulo = card ? card.querySelector('h3').textContent : el.querySelector('.l').textContent;
+  const sub = card ? el.dataset.tip : el.querySelector('.v').textContent;
+  const list = [...g].sort((a, b) => b.date - a.date);
+  drillFrom = el;
+  $('drillTitle').textContent = titulo;
+  $('drillSub').textContent = `${sub} · ${list.length} conversa(s) nesta lista`;
+  $('drillList').innerHTML = list.map(c => `<button type="button" class="drow" data-id="${esc(c.id)}">
+    <span class="dmain"><b>${esc(c.cliente || c.id)}</b><small>${fmtD(c.date)} · ${esc(c.agent)} · ${esc(c.motivo || 'sem classificação')}</small><small>Protocolo ${esc(c.id)}</small></span>
+    <span class="dside"><span>CSAT ${sc(c.csat)}</span><span>FCR ${fcrTagC(c)}</span></span></button>`).join('');
+  $('drill').classList.add('open'); $('drillList').scrollTop = 0; $('drillClose').focus();
+}
+function closeDrill() { $('drill').classList.remove('open'); $('drillList').innerHTML = ''; drillFrom = null; }
+['dCharts', 'dTiles'].forEach(id => {
+  $(id).addEventListener('click', e => { const el = e.target.closest('[data-drill]'); if (el) openDrill(el); });
+  $(id).addEventListener('keydown', e => { const el = e.target.closest('[data-drill]'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDrill(el); } });
+});
+$('drillClose').onclick = () => { const v = drillFrom; closeDrill(); if (v && v.isConnected) v.focus(); };
+$('drillList').addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (b) openDrawer(DATA.find(c => c.id === b.dataset.id)); });
+document.addEventListener('pointerdown', e => { if ($('drill').classList.contains('open') && !e.target.closest('#drill, #drawer, #sugModal') && document.contains(e.target)) closeDrill(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('drill').classList.contains('open') && !$('drawer').classList.contains('open')) closeDrill(); });
 
 ['dAgent', 'dGran'].forEach(id => $(id).addEventListener('change', renderDados));
 $('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent', 'dGran'].forEach(id => $(id).value = ''); setPeriod('dPeriod', 'dFrom', 'dTo', DEFAULT_PERIOD); renderDados(); };
