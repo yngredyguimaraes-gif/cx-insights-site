@@ -1972,9 +1972,9 @@ function fillTagFilter() {
   const box = $('fTagBox'); if (!box) return;
   const all = allKnownTags();
   [...selTags].forEach(t => { if (!all.includes(t)) selTags.delete(t); });
-  $('tfWrap').classList.toggle('hidden', !all.length);
   const af = document.activeElement, keep = af && af.dataset && af.dataset.tf && box.contains(af) ? af.dataset.tf : null;
   $('tfBtn').textContent = !selTags.size ? 'Todas' : selTags.size === 1 ? [...selTags][0] : `${selTags.size} tags selecionadas`;
+  if (!all.length) { box.innerHTML = `<p class="note" style="margin:0;padding:8px 10px">${simulando() ? 'As tags não aparecem nesta prévia.' : 'Nenhuma tag ainda. Abra uma conversa para criar a primeira.'}</p>`; return; }
   box.innerHTML = all.map((t, k) => {
     const i = tagInfo(t);
     return `<div class="msrow"><label><input type="checkbox" data-tf="${esc(t)}" ${selTags.has(t) ? 'checked' : ''}><span>${esc(t)}</span>${i.global ? '<span class="msg-pill" title="Tag global: todos que veem a conversa enxergam">global</span>' : ''}<span class="tfn" title="Conversas com esta tag">${i.n}</span></label></div>`;
