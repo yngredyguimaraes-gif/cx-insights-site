@@ -1742,12 +1742,15 @@ function swBase() { let L = scope(); if (seesAllNow() && $('swAgent').value) L =
 function swStats(L) {
   const k = L.filter(fcrVal), parc = k.filter(c => c.fcr === 'em_apuracao').length;
   return { n: L.length, csat: L.length ? avg(L.map(c => c.csat)) : null, fcr: k.length ? k.filter(c => fcrVal(c) === 'sim').length / k.length * 100 : null,
-    parcial: L.filter(c => c.fcr === 'em_apuracao' && c.fcrParcial).length, share: k.length ? parc / k.length : 0, resp: median(L.filter(c => !c.longa).map(c => c.first)) };
+    parcial: L.filter(c => c.fcr === 'em_apuracao' && c.fcrParcial).length, share: k.length ? parc / k.length : 0, resp: median(L.filter(c => !c.longa).map(c => c.first)),
+    tmr: mediaDe(L.map(c => c.gap)), tma: mediaDe(L.map(c => c.dur)), tmpr: mediaDe(L.filter(c => !c.longa).map(c => c.first)) };
 }
+/* média simples, ignorando quem não tem o tempo medido */
+const mediaDe = v => { const k = v.filter(x => x != null); return k.length ? k.reduce((s, x) => s + x, 0) / k.length : null; };
 /* tempo sempre em minutos, número sempre com vírgula, variação sempre com unidade */
 const minTxt = m => m == null ? '—' : Math.round(m).toLocaleString('pt-BR') + ' min';
 const comparavel = (a, b) => !!a && !!b && Math.abs((a.share || 0) - (b.share || 0)) <= 0.25;     // FCR parcial não se compara com FCR fechado
-const dTxt = (x, un) => un === '' ? Math.abs(x).toFixed(2) : un === 'pp' ? Math.abs(x).toFixed(1) + ' pp' : Math.round(Math.abs(x)).toLocaleString('pt-BR') + ' min';
+const dTxt = (x, un) => un === 'dur' ? fmtSec(Math.round(Math.abs(x))) : un === '' ?Math.abs(x).toFixed(2) : un === 'pp' ? Math.abs(x).toFixed(1) + ' pp' : Math.round(Math.abs(x)).toLocaleString('pt-BR') + ' min';
 const dIgual = (x, un) => Math.abs(x) < (un === '' ? 0.005 : 0.5);
 function swTile(label, val, fmt, base, low, un, baseLabel, note, semBase) {
   let d = '<div class="kd eq">sem base de comparação</div>';
@@ -1815,13 +1818,13 @@ function renderSemana() {
   } else { const pl = inR(base, addDays(mon, -7), mon); ref = pl.length ? swStats(pl) : null; refLabel = 'a semana anterior'; }
   const cur = swStats(L);
   const fcrComp = !!ref && ((cmp === 'team' && !modoDia && !equipe) || comparavel(cur, ref)), fcrParc = cur.share > 0.3;
+  const tempo = k => swTile(k.toUpperCase(), cur[k], v => fmtSec(Math.round(v)), ref ? ref[k] : null, true, 'dur', refLabel);
   $('swTiles').innerHTML = [
-    swTile('CSAT médio', cur.csat, v => v.toFixed(2), ref ? ref.csat : null, false, '', refLabel),
+    swTile('CSAT / conversas avaliadas', cur.csat, v => `${v.toFixed(2)} / ${cur.n}`, ref ? ref.csat : null, false, '', refLabel, modoDia ? 'no dia' : fechada ? 'na semana' : 'até hoje'),
     swTile(fcrParc ? '(FCR) Resolvido no primeiro contato? (parcial)' : '(FCR) Resolvido no primeiro contato?', cur.fcr, v => Math.round(v) + '%', fcrComp && ref ? ref.fcr : null, false, 'pp', refLabel,
       fcrParc ? `${Math.round(cur.share * 100)}% das conversas ainda dentro dos 7 dias` : (cur.parcial ? `${cur.parcial} parcial(is)` : ''),
       cur.fcr != null && ref && !fcrComp ? 'sem comparação: a janela de 7 dias ainda não fechou' : ''),
-    swTile('1ª resposta (mediana)', cur.resp == null ? null : cur.resp / 60, minTxt, ref && ref.resp != null ? ref.resp / 60 : null, true, 'min', refLabel),
-    `<div class="kpi"><div class="v">${cur.n}</div><div class="l">Conversas avaliadas</div><div class="kd eq">${modoDia ? 'no dia' : fechada ? 'na semana' : 'até hoje'}</div></div>`
+    tempo('tmr'), tempo('tma'), tempo('tmpr')
   ].join('');
 
   /* faixa dos dias */
