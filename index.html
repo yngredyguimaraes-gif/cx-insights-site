@@ -444,8 +444,6 @@
             <select id="fCsat"><option value="">Todas</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="low">Baixas (1 a 2)</option><option value="high">Altas (4 a 5)</option></select></div>
           <div><label for="fFcr">FCR (sem retorno em 7 dias)</label>
             <select id="fFcr"><option value="">Todos</option><option value="sim">Sim</option><option value="nao">Não</option><option value="em_apuracao">Em apuração</option><option value="sem_classificacao">Sem classificação</option></select></div>
-          <div><label for="fAdi">Adiamento (pausa de 12h+)</label>
-            <select id="fAdi"><option value="">Todas</option><option value="1">Com pausa descontada</option><option value="0">Sem pausa descontada</option></select></div>
           <div><label for="fFav">Favoritas</label>
             <select id="fFav"><option value="">Todas</option><option value="1">Só as favoritas</option></select></div>
           <div class="msel" id="tfWrap"><label for="tfBtn">Tags (pode marcar várias)</label><button type="button" id="tfBtn" class="msbtn" aria-haspopup="true" aria-expanded="false">Todas</button><div class="mspanel hidden" id="fTagBox" role="group" aria-label="Tags"></div></div>
@@ -629,7 +627,7 @@ supa.auth.onAuthStateChange((event, session) => {
 });
 function showLogin() {
   if (me) { KEEP.set('tab', null); KEEP.set('conv', null); }   // saiu da conta: o F5 não deve reabrir nada
-  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); MYMARK = new Map(); GTAGS = new Map(); SUGS = []; CARDS = []; CARDSIG = ''; AVISOS = []; sugOpen(false); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
+  me = null; DATA = []; REVMAP = new Map(); reviewQueue = []; NOTES = []; RDRAFT.clear(); MYMARK = new Map(); GTAGS = new Map(); SALVAS = []; SUGS = []; CARDS = []; CARDSIG = ''; AVISOS = []; sugOpen(false); NPEOPLE = new Map(); AVATAR = new Map(); avSig = ''; clearInterval(notesTimer); closeDrawer();
   $('app').classList.add('hidden'); $('login').classList.remove('hidden');
 }
 async function bootstrap(session) {
@@ -730,10 +728,10 @@ function setupFilters() {
 }
 
 /* ---------- 3) FILTROS E ORDENAÇÃO ---------- */
-const FILTERS = ['fPeriod', 'fFrom', 'fTo', 'fAgent', 'fCsat', 'fFcr', 'fAdi', 'fFav'];
+const FILTERS = ['fPeriod', 'fFrom', 'fTo', 'fAgent', 'fCsat', 'fFcr', 'fFav'];
 const selTags = new Set();      // tags marcadas no filtro (vale qualquer uma delas)
 function filtered() {
-  const f = { agent: $('fAgent').value, csat: $('fCsat').value, fcr: $('fFcr').value, adi: $('fAdi').value, fav: $('fFav').value };
+  const f = { agent: $('fAgent').value, csat: $('fCsat').value, fcr: $('fFcr').value, fav: $('fFav').value };
   const [pa, pb] = periodRange('fPeriod', 'fFrom', 'fTo');
   return scope().filter(c => {
     if (pa && c.date < pa) return false;
@@ -743,7 +741,6 @@ function filtered() {
     if (f.csat === 'high' && !(c.csat >= 4)) return false;
     if (/^[1-5]$/.test(f.csat) && c.csat !== +f.csat) return false;
     if (f.fcr && c.fcr !== f.fcr) return false;
-    if (f.adi !== '' && (c.pausas > 0) !== (f.adi === '1')) return false;
     if (f.fav && !isFav(c.id)) return false;
     if (selTags.size && !tagsOf(c.id).some(t => selTags.has(t))) return false;
     return true;
@@ -1927,14 +1924,14 @@ $('tab-sem').addEventListener('change', e => { if (e.target.id === 'swHideRev') 
 
 /* ---------- 12) FAVORITOS E TAGS DAS CONVERSAS ---------- */
 /* pessoais: só quem criou vê. globais: todo mundo que enxerga a conversa vê. */
-let MYMARK = new Map(), GTAGS = new Map(), lastGlobal = false;
+let MYMARK = new Map(), GTAGS = new Map(), SALVAS = [], lastGlobal = false;   // SALVAS: tags criadas sem conversa
 const normTag = t => String(t || '').trim().replace(/\s+/g, ' ').toLowerCase();
 const myM = id => simulando() ? null : MYMARK.get(id) || null;
 const isFav = id => !!(myM(id) && myM(id).favorito);
 const myTags = id => (myM(id) || {}).tags || [];
 const gTags = id => simulando() ? [] : (GTAGS.get(id) || []);
 const tagsOf = id => [...new Set([...myTags(id), ...gTags(id).map(g => g.tag)])];
-const allKnownTags = () => { const s = new Set(); if (!simulando()) { MYMARK.forEach(m => m.tags.forEach(t => s.add(t))); GTAGS.forEach(l => l.forEach(g => s.add(g.tag))); } return [...s].sort((a, b) => a.localeCompare(b, 'pt-BR')); };
+const allKnownTags = () => { const s = new Set(); if (!simulando()) { MYMARK.forEach(m => m.tags.forEach(t => s.add(t))); GTAGS.forEach(l => l.forEach(g => s.add(g.tag))); SALVAS.forEach(x => s.add(x.tag)); } return [...s].sort((a, b) => a.localeCompare(b, 'pt-BR')); };
 function tagChips(id, editavel) {
   const x = (t, g) => editavel ? `<button type="button" data-mk="rm" data-tag="${esc(t)}" data-g="${g ? 1 : 0}" aria-label="Remover a tag ${esc(t)}" title="Remover">×</button>` : '';
   return gTags(id).map(g => `<span class="ctag g" title="Tag global, criada por ${esc(pname(g.criado_por))}. Todos que veem esta conversa a enxergam.">${esc(g.tag)}${editavel && me && (g.criado_por === me.id || isLid(me)) ? x(g.tag, true) : ''}</span>`).join(' ') + ' ' +
@@ -1955,7 +1952,8 @@ async function pageAll(table, cols) {
 }
 async function loadMarks() {
   if (!me) return;
-  const [a, g] = await Promise.all([pageAll('marcacoes_conversa', 'conversation_id,favorito,tags'), pageAll('tags_conversa_globais', 'conversation_id,tag,criado_por,criado_em')]);
+  const [a, g, s] = await Promise.all([pageAll('marcacoes_conversa', 'conversation_id,favorito,tags'), pageAll('tags_conversa_globais', 'conversation_id,tag,criado_por,criado_em'), pageAll('tags_salvas', 'tag,global,criado_por')]);
+  if (s) SALVAS = s;
   if (a) MYMARK = new Map(a.map(x => [x.conversation_id, { favorito: x.favorito, tags: x.tags || [] }]));
   if (g) { GTAGS = new Map(); g.forEach(x => (GTAGS.get(x.conversation_id) || GTAGS.set(x.conversation_id, []).get(x.conversation_id)).push(x)); }
   refreshMarks();
@@ -1966,6 +1964,7 @@ function tagInfo(t) {
   DATA.forEach(c => { if (tagsOf(c.id).includes(t)) n++; });
   MYMARK.forEach(m => { if (m.tags.includes(t)) pessoal++; });
   GTAGS.forEach(l => l.forEach(g => { if (g.tag === t) { global = true; if (me && g.criado_por === me.id) minhasGlobais++; } }));
+  if (SALVAS.some(x => x.tag === t && x.global)) global = true;
   return { n, pessoal, global, minhasGlobais, apagavel: pessoal + minhasGlobais > 0 };
 }
 function fillTagFilter() {
@@ -2018,10 +2017,10 @@ function renderDrawerMarks(c) {
   const af = document.activeElement, keepF = af && af.dataset && af.dataset.dm !== undefined && box.contains(af) ? [af.dataset.dm, af.dataset.g] : null;
   box.innerHTML = `<div class="dmrow"><button type="button" class="btn ghost sm" data-mk="fav" aria-pressed="${fav}">${fav ? '★ Favorita' : '☆ Favoritar'}</button>${tagChips(id, true)}${tem ? '' : '<span class="note" style="margin:0">Sem tags ainda.</span>'}</div>
     <div class="msel" id="dmSel"><label for="dmBtn">Tags desta conversa</label><button type="button" id="dmBtn" class="msbtn" aria-haspopup="true" aria-expanded="${dmOpen}">${tem ? `${tem} tag${tem > 1 ? 's' : ''} nesta conversa` : 'Selecionar tags'}</button>
-      <div class="mspanel${dmOpen ? '' : ' hidden'}" id="dmPanel" role="group" aria-label="Tags">${cat.length ? cat.map(x => `<div class="msrow"><label><input type="checkbox" data-dm="${esc(x.t)}" data-g="${x.g ? 1 : 0}" ${x.aqui ? 'checked' : ''}><span>${esc(x.t)}</span>${x.g ? '<span class="msg-pill" title="Tag global: todos que veem a conversa enxergam">global</span>' : ''}<span class="tfn">${x.outras ? `em ${x.outras} outra${x.outras > 1 ? 's' : ''}` : 'só aqui'}</span></label>${x.aqui && !x.outras && x.meu ? `<button type="button" class="tfx" data-mk="del" data-tag="${esc(x.t)}" data-g="${x.g ? 1 : 0}" aria-label="Excluir a tag ${esc(x.t)}" title="Excluir: esta tag não é usada em nenhuma outra conversa">×</button>` : ''}</div>`).join('') : '<div class="note" style="padding:8px">Ainda não há tags. Crie a primeira abaixo.</div>'}
+      <div class="mspanel${dmOpen ? '' : ' hidden'}" id="dmPanel" role="group" aria-label="Tags">${cat.length ? cat.map(x => `<div class="msrow"><label><input type="checkbox" data-dm="${esc(x.t)}" data-g="${x.g ? 1 : 0}" ${x.aqui ? 'checked' : ''}><span>${esc(x.t)}</span>${x.g ? '<span class="msg-pill" title="Tag global: todos que veem a conversa enxergam">global</span>' : ''}<span class="tfn">${x.outras ? `em ${x.outras} ${x.aqui ? 'outra' : 'conversa'}${x.outras > 1 ? 's' : ''}` : x.aqui ? 'só aqui' : 'não usada'}</span></label>${x.aqui && !x.outras && x.meu ? `<button type="button" class="tfx" data-mk="del" data-tag="${esc(x.t)}" data-g="${x.g ? 1 : 0}" aria-label="Excluir a tag ${esc(x.t)}" title="Excluir: esta tag não é usada em nenhuma outra conversa">×</button>` : ''}${!x.aqui && !x.outras && x.salva ? `<button type="button" class="tfx" data-mk="delsalva" data-tag="${esc(x.t)}" data-g="${x.g ? 1 : 0}" aria-label="Excluir a tag ${esc(x.t)}" title="Excluir: esta tag não é usada em nenhuma conversa">×</button>` : ''}</div>`).join('') : '<div class="note" style="padding:8px">Ainda não há tags. Crie a primeira abaixo.</div>'}
         <div class="msfoot">Só dá para excluir (×) uma tag que não está em nenhuma outra conversa.</div></div></div>
     <form class="dmadd" id="dmForm"><input type="text" id="dmTag" maxlength="30" autocomplete="off" placeholder="Ou crie uma tag nova, por exemplo: boa prática" aria-label="Nome da nova tag">
-      <label class="dmg"><input type="checkbox" id="dmGlobal" ${lastGlobal ? 'checked' : ''}> Tag global <span class="note" style="margin:0">(todos que veem a conversa enxergam)</span></label><button class="btn sm" type="submit">Criar e adicionar</button></form>
+      <label class="dmg"><input type="checkbox" id="dmGlobal" ${lastGlobal ? 'checked' : ''}> Tag global <span class="note" style="margin:0">(todos que veem a conversa enxergam)</span></label><button class="btn sm" type="submit">Criar e adicionar</button><button class="btn ghost sm" type="button" data-mk="criar">Só criar</button></form>
     <div class="alert" id="dmMsg" role="status"></div>
     <p class="note" style="margin:8px 0 0">Verde = tag global. Sem cor = tag pessoal, só você vê. Até 10 tags de cada tipo por conversa.</p>`;
   if (keepF) { const el = [...box.querySelectorAll('[data-dm]')].find(x => x.dataset.dm === keepF[0] && x.dataset.g === keepF[1]); if (el) el.focus(); }
@@ -2031,6 +2030,7 @@ function catalogo(id) {
   const m = new Map(), get = (t, g) => { const k = (g ? 'g' : 'p') + t; if (!m.has(k)) m.set(k, { t, g, aqui: false, outras: 0, meu: false }); return m.get(k); };
   GTAGS.forEach((l, cid) => l.forEach(x => { const e = get(x.tag, true); if (cid === id) { e.aqui = true; e.meu = !!me && (x.criado_por === me.id || isLid(me)); } else e.outras++; }));
   MYMARK.forEach((mk, cid) => mk.tags.forEach(t => { const e = get(t, false); if (cid === id) { e.aqui = true; e.meu = true; } else e.outras++; }));
+  SALVAS.forEach(x => { const e = get(x.tag, x.global); if (me && (x.criado_por === me.id || (x.global && isLid(me)))) e.salva = true; });
   return [...m.values()].sort((a, b) => a.t.localeCompare(b.t, 'pt-BR') || (b.g - a.g));
 }
 let dmOpen = false;
@@ -2053,6 +2053,26 @@ async function addTag(id, texto, global) {
   }
   refreshMarks(); if (texto === undefined) { const n = $('dmTag'); if (n) n.focus(); }
 }
+/* criar a tag sem colocar nesta conversa */
+async function createTag(id) {
+  const t = normTag($('dmTag').value), g = $('dmGlobal').checked, say = (k, x) => msg($('dmMsg'), k, x);
+  lastGlobal = g;
+  if (!t) return say('err', 'Escreva o nome da tag.');
+  if (t.length > 30) return say('err', 'Use até 30 caracteres.');
+  if (catalogo(id).some(x => x.t === t && x.g === g)) return say('err', 'Essa tag já existe. Marque-a na lista acima.');
+  const { data, error } = await supa.from('tags_salvas').insert({ tag: t, global: g, criado_por: me.id }).select('tag,global,criado_por').single();
+  if (error) return say('err', 'Não foi possível criar a tag. ' + error.message);
+  SALVAS.push(data); refreshMarks();
+  msg($('dmMsg'), 'ok', `Tag "${t}" criada, sem adicionar a esta conversa.`);
+}
+async function dropSaved(t, g) {
+  let q = supa.from('tags_salvas').delete().eq('tag', t).eq('global', g);
+  if (!g) q = q.eq('criado_por', me.id);
+  const { data, error } = await q.select('tag,criado_por');
+  if (error || !data.length) return false;
+  SALVAS = SALVAS.filter(x => !(x.tag === t && x.global === g && data.some(d => d.criado_por === x.criado_por)));
+  return true;
+}
 async function removeTag(id, t, g) {
   if (g) {
     if (!confirm(`Remover a tag global "${t}"? Ela some para todos que veem esta conversa.`)) return;
@@ -2061,17 +2081,23 @@ async function removeTag(id, t, g) {
     GTAGS.set(id, (GTAGS.get(id) || []).filter(x => x.tag !== t));
   } else if (!await saveMine(id, isFav(id), myTags(id).filter(x => x !== t))) { alert('Não foi possível remover a tag.'); return; }
   refreshMarks();
+  return true;
 }
 $('dBody').addEventListener('submit', e => { if (e.target.closest('#dMarks')) { e.preventDefault(); addTag(drawerId); } });
 $('dBody').addEventListener('click', e => {
   if (e.target.closest('#dmBtn')) { dmOpen = !dmOpen; $('dmPanel').classList.toggle('hidden', !dmOpen); $('dmBtn').setAttribute('aria-expanded', dmOpen); return; }
   const b = e.target.closest('#dMarks [data-mk]'); if (!b) return;
   if (b.dataset.mk === 'fav') toggleFav(drawerId);
+  else if (b.dataset.mk === 'criar') createTag(drawerId);
+  else if (b.dataset.mk === 'delsalva') {
+    const t = b.dataset.tag;
+    if (confirm(`Excluir a tag "${t}"?`)) dropSaved(t, b.dataset.g === '1').then(ok => ok ? refreshMarks() : alert('Não foi possível excluir a tag.'));
+  }
   else if (b.dataset.mk === 'rm') removeTag(drawerId, b.dataset.tag, b.dataset.g === '1');
   else if (b.dataset.mk === 'del') {
     const g = b.dataset.g === '1', t = b.dataset.tag;
     if (!g && !confirm(`Excluir a tag "${t}"? Ela não é usada em nenhuma outra conversa.`)) return;
-    removeTag(drawerId, t, g);
+    removeTag(drawerId, t, g).then(async ok => { if (ok && SALVAS.some(x => x.tag === t && x.global === g) && await dropSaved(t, g)) refreshMarks(); });
   }
 });
 /* marcar ou desmarcar uma tag no menu: só mexe nesta conversa */
