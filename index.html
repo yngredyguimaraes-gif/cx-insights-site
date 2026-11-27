@@ -1861,14 +1861,14 @@ function renderSemana() {
       if (mv.length >= 2) I.splice(1, 0, ['info', `Quem mais subiu: <b>${esc(mv[0].n)}</b> (${mv[0].d >= 0 ? '+' : '−'}${Math.abs(mv[0].d).toFixed(2)}). Quem mais caiu: <b>${esc(mv[mv.length - 1].n)}</b> (${mv[mv.length - 1].d >= 0 ? '+' : '−'}${Math.abs(mv[mv.length - 1].d).toFixed(2)}).`]);
     }
     const cel = (v, d) => `<td><div class="tv">${v}</div>${d}</td>`, sem = '<span class="tdl eq">—</span>';
-    tabelaTime = `<section class="vcard"><h3>Time por atendente</h3><div class="sub">Do menor para o maior CSAT, para ver quem precisa de atenção. A seta mostra a variação em relação à semana anterior: verde melhorou, vermelho piorou. Clique numa linha para abrir só essa pessoa</div><div class="tablewrap" style="border:0"><table style="min-width:560px"><thead><tr><th>Atendente</th><th>Conversas</th><th>CSAT (0 a 5)</th><th>(FCR) Resolvido no primeiro contato? (%)</th><th>1ª resposta (min)</th></tr></thead><tbody>` +
+    tabelaTime = `<section class="vcard"><h3>Time por atendente</h3><div class="sub">Do menor para o maior CSAT, para ver quem precisa de atenção. A seta mostra a variação em relação à semana anterior: verde melhorou, vermelho piorou. Clique numa linha para abrir só essa pessoa</div><div class="tablewrap" style="border:0"><table style="min-width:760px"><thead><tr><th>Atendente</th><th>Conversas</th><th>CSAT (0 a 5)</th><th>TMPR</th><th>TMA</th><th>TMR</th><th>(FCR) Resolvido no<br>primeiro contato? (%)</th></tr></thead><tbody>` +
       rows.map(r => {
         const pouco = r.s.n < 5, comp = !!r.ps && !pouco && r.ps.n >= 5, fcrOk = comp && comparavel(r.s, r.ps), parc = r.s.share > 0.3;
         return `<tr data-ag="${esc(r.n)}"><td><div class="tnome"><div class="nav">${avatarByName(r.n)}</div>${esc(r.n)}</div></td>` +
           `<td><div class="tv">${r.s.n}</div>${pouco ? '<span class="tdl eq">poucos dados</span>' : ''}</td>` +
           cel(r.s.csat == null ? '—' : r.s.csat.toFixed(2), comp ? dlt(r.s.csat, r.ps.csat, false, '') : sem) +
-          cel(r.s.fcr == null ? '—' : Math.round(r.s.fcr) + '%' + (parc ? '*' : ''), fcrOk ? dlt(r.s.fcr, r.ps.fcr, false, 'pp') : `<span class="tdl eq">${parc ? 'parcial' : '—'}</span>`) +
-          cel(r.s.resp == null ? '—' : minTxt(r.s.resp / 60).replace(' min', ''), comp ? dlt(r.s.resp == null ? null : r.s.resp / 60, r.ps.resp == null ? null : r.ps.resp / 60, true, 'min') : sem) + '</tr>';
+          ['tmpr', 'tma', 'tmr'].map(k => cel(r.s[k] == null ? '—' : fmtSec(Math.round(r.s[k])), comp ? dlt(r.s[k], r.ps[k], true, 'dur') : sem)).join('') +
+          cel(r.s.fcr == null ? '—' : Math.round(r.s.fcr) + '%' + (parc ? '*' : ''), fcrOk ? dlt(r.s.fcr, r.ps.fcr, false, 'pp') : `<span class="tdl eq">${parc ? 'parcial' : '—'}</span>`) + '</tr>';
       }).join('') + '</tbody></table></div><p class="note" style="margin:10px 0 0">* Resultado parcial: mais de 30% das conversas ainda estão dentro dos 7 dias, por isso não há variação (a semana anterior já fechou). "Poucos dados": menos de 5 conversas, sem comparação.</p></section>';
   }
   const COR = { good: 'var(--good)', bad: 'var(--bad)', warn: 'var(--warn)', info: 'var(--dark)' };
