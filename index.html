@@ -1895,13 +1895,17 @@ function renderSemana() {
   const tRefRows = modoDia ? tSem : cmp === 'team' && !equipe ? [] : inR(tBase, addDays(mon, -7), mon);
   const tCur = temposStats(tL), tRef = tRefRows.length ? temposStats(tRefRows) : null;
   const fcrComp = !!ref && ((cmp === 'team' && !modoDia && !equipe) || comparavel(cur, ref)), fcrParc = cur.share > 0.3;
-  const tempo = k => swTile(k.toUpperCase(), tCur[k], v => fmtSec(Math.round(v)), tRef ? tRef[k] : null, true, 'dur', refLabel, tCur.n ? `${tCur.n.toLocaleString('pt-BR')} conversas, com e sem CSAT` : '');
+  const tempo = k => swTile(k.toUpperCase(), tCur[k], v => fmtSec(Math.round(v)), tRef ? tRef[k] : null, true, 'dur', refLabel);
+  /* volume geral: quantidade não é "melhor" nem "pior", por isso a variação fica sem cor */
+  const dif = !modoDia && tRef ? tCur.n - tRef.n : null;
+  const gerais = `<div class="kpi"><div class="v">${tCur.n ? tCur.n.toLocaleString('pt-BR') : '—'}</div><div class="l">Atendimentos gerais (com e sem CSAT)</div>` +
+    (dif == null || !tCur.n ? `<div class="kd eq">${modoDia ? 'no dia' : fechada ? 'na semana' : 'até hoje'}</div>` : `<div class="kd eq">${dif === 0 ? 'igual a' : (dif > 0 ? '▲ ' : '▼ ') + Math.abs(dif).toLocaleString('pt-BR') + ' vs'} ${refLabel}</div>`) + '</div>';
   $('swTiles').innerHTML = [
     swTile('CSAT / conversas avaliadas', cur.csat, v => `${v.toFixed(2)} / ${cur.n}`, ref ? ref.csat : null, false, '', refLabel, modoDia ? 'no dia' : fechada ? 'na semana' : 'até hoje'),
     swTile(fcrParc ? '(FCR) Resolvido no primeiro contato? (parcial)' : '(FCR) Resolvido no primeiro contato?', cur.fcr, v => Math.round(v) + '%', fcrComp && ref ? ref.fcr : null, false, 'pp', refLabel,
       fcrParc ? `${Math.round(cur.share * 100)}% das conversas ainda dentro dos 7 dias` : (cur.parcial ? `${cur.parcial} parcial(is)` : ''),
       cur.fcr != null && ref && !fcrComp ? 'sem comparação: a janela de 7 dias ainda não fechou' : ''),
-    tempo('tmr'), tempo('tma'), tempo('tmpr')
+    gerais, tempo('tmr'), tempo('tma'), tempo('tmpr')
   ].join('');
 
   /* faixa dos dias */
