@@ -431,6 +431,7 @@
         </div>
         <div class="fgrid" style="margin-top:12px">
           <div id="swAgentWrap" class="hidden"><label for="swAgent">Atendente</label><select id="swAgent"></select></div>
+          <div><label for="swFila">Fila</label><select id="swFila"><option value="">Todas</option></select></div>
           <div id="swCmpWrap"><label for="swCmp">Comparar com</label><select id="swCmp"><option value="prev">Semana anterior</option><option value="team">Média do time</option></select></div>
         </div>
       </div>
@@ -453,6 +454,7 @@
           <div><label for="fFrom">De</label><input id="fFrom" type="date"></div>
           <div><label for="fTo">Até</label><input id="fTo" type="date"></div>
           <div id="agentWrap"><label for="fAgent">Atendente</label><select id="fAgent"></select></div>
+          <div><label for="fFila">Fila</label><select id="fFila"><option value="">Todas</option></select></div>
           <div><label for="fCsat">Nota de CSAT</label>
             <select id="fCsat"><option value="">Todas</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="low">Baixas (1 a 2)</option><option value="high">Altas (4 a 5)</option></select></div>
           <div><label for="fFcr">(FCR) Resolvido no primeiro contato?</label>
@@ -485,6 +487,7 @@
             <select id="dPeriod"><option value="">Todo o período</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="mes">Este mês</option><option value="mesant">Mês passado</option><option value="custom">Personalizado</option></select></div>
           <div><label for="dFrom">De</label><input id="dFrom" type="date"></div>
           <div><label for="dTo">Até</label><input id="dTo" type="date"></div>
+          <div><label for="dFila">Fila</label><select id="dFila"><option value="">Todas</option></select></div>
           <div id="dAgentWrap"><label for="dAgent">Atendente</label><select id="dAgent"></select></div>
           <div><label for="dGran">Ver evolução por</label><select id="dGran"><option value="">Automático</option><option value="day">Dia</option><option value="week">Semana</option><option value="month">Mês</option></select></div>
         </div>
@@ -678,7 +681,7 @@ const mapRow = r => ({
   fcrParcial: r.fcr_parcial,
   id: r.conversation_id, date: new Date(r.aberta_em), fim: r.encerrada_em ? new Date(r.encerrada_em) : null,
   avaliado: r.avaliado_em ? new Date(r.avaliado_em) : null, canal: r.canal, motivo: motivoPt(r.motivo),
-  cliente: r.cliente_nome || '', agent: r.atendente_nome || '(sem nome)', csat: r.csat_nota, comment: r.csat_comentario, resolvido: r.resolvido_cliente,
+  fila: r.fila || '', cliente: r.cliente_nome || '', agent:r.atendente_nome || '(sem nome)', csat: r.csat_nota, comment: r.csat_comentario, resolvido: r.resolvido_cliente,
   fcr: r.fcr, dur: r.tempo_atendimento_s, pausas: r.pausas_descontadas || 0,
   gap: r.tempo_entre_respostas_s == null ? null : Number(r.tempo_entre_respostas_s), first: r.primeira_resposta_s, longa: !!r.espera_longa
 });
@@ -742,10 +745,16 @@ function setupFilters() {
   const names = [...new Set(DATA.map(c => c.agent))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const opts = '<option value="">Todos</option>' + names.map(a => `<option>${esc(a)}</option>`).join('');
   $('fAgent').innerHTML = opts; $('dAgent').innerHTML = opts; $('swAgent').innerHTML = opts;
+  const filas = [...new Set(scope().map(c => c.fila).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const optF = '<option value="">Todas</option>' + filas.map(f => `<option>${esc(f)}</option>`).join('') + (scope().some(c => !c.fila) ? `<option value="${SEM_FILA}">Sem fila identificada</option>` : '');
+  ['fFila', 'dFila', 'swFila'].forEach(id => { $(id).innerHTML = optF; });
 }
+/* filtro de fila: vazio = todas */
+const SEM_FILA = '__sem';
+const daFila = (c, v) => !v || (v === SEM_FILA ? !c.fila : c.fila === v);
 
 /* ---------- 3) FILTROS E ORDENAÇÃO ---------- */
-const FILTERS = ['fPeriod', 'fFrom', 'fTo', 'fAgent', 'fCsat', 'fFcr', 'fFav'];
+const FILTERS = ['fPeriod', 'fFrom', 'fTo', 'fAgent', 'fFila', 'fCsat', 'fFcr', 'fFav'];
 const selTags = new Set();      // tags marcadas no filtro (vale qualquer uma delas)
 function filtered() {
   const f = { agent: $('fAgent').value, csat: $('fCsat').value, fcr: $('fFcr').value, fav: $('fFav').value };
@@ -754,6 +763,7 @@ function filtered() {
     if (pa && c.date < pa) return false;
     if (pb && c.date >= pb) return false;
     if (f.agent && c.agent !== f.agent) return false;
+    if (!daFila(c, $('fFila').value)) return false;
     if (f.csat === 'low' && !(c.csat <= 2)) return false;
     if (f.csat === 'high' && !(c.csat >= 4)) return false;
     if (/^[1-5]$/.test(f.csat) && c.csat !== +f.csat) return false;
@@ -847,7 +857,7 @@ function openDrawer(c, fila) {
         ${kv('Atendimento', fmtSec(c.dur))}${kv('Entre respostas (média)', fmtSec(c.gap))}
         ${c.pausas ? `<div style="font-size:11.5px;color:var(--muted);margin-top:6px">${c.pausas} pausa(s) de 12h ou mais descontada(s) do tempo de atendimento (estimado).</div>` : ''}</div>
       <div class="fcard"><div class="flb">Conversa</div>
-        ${kv('Atendente', esc(c.agent))}${kv('Canal', esc(c.canal || '—'))}${kv('Motivo', esc(c.motivo || 'sem classificação'))}
+        ${kv('Atendente', esc(c.agent))}${kv('Canal', esc(c.canal || '—'))}${kv('Motivo', esc(c.motivo || 'sem classificação'))}${kv('Fila', esc(c.fila || 'sem fila identificada'))}
         ${kv('Abertura', fmtD(c.date))}${kv('Encerramento', fmtD(c.fim))}</div>
       <div id="dMarks" class="dmarks hidden"></div>
       <div id="dNavSlot"></div>
@@ -1017,7 +1027,7 @@ const ddmm = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digi
 
 function dadosList() {
   const [a, b] = periodRange('dPeriod', 'dFrom', 'dTo'), ag = $('dAgent').value;
-  return scope().filter(c => (!a || c.date >= a) && (!b || c.date < b) && (!ag || c.agent === ag));
+  return scope().filter(c => (!a || c.date >= a) && (!b || c.date < b) && (!ag || c.agent === ag) && daFila(c, $('dFila').value));
 }
 
 /* conversas por tras de cada numero da aba de dados (abre o painel da direita) */
@@ -1183,8 +1193,8 @@ $('drillList').addEventListener('click', e => { const b = e.target.closest('[dat
 document.addEventListener('pointerdown', e => { if ($('drill').classList.contains('open') && !e.target.closest('#drill, #drawer, #sugModal') && document.contains(e.target)) closeDrill(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('drill').classList.contains('open') && !$('drawer').classList.contains('open')) closeDrill(); });
 
-['dAgent', 'dGran'].forEach(id => $(id).addEventListener('change', renderDados));
-$('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent', 'dGran'].forEach(id => $(id).value = ''); setPeriod('dPeriod', 'dFrom', 'dTo', DEFAULT_PERIOD); renderDados(); };
+['dAgent', 'dFila', 'dGran'].forEach(id => $(id).addEventListener('change', renderDados));
+$('dClear').onclick = () => { ['dPeriod', 'dFrom', 'dTo', 'dAgent', 'dFila', 'dGran'].forEach(id => $(id).value = ''); setPeriod('dPeriod', 'dFrom', 'dTo', DEFAULT_PERIOD); renderDados(); };
 const renderAnalysis = renderDados;
 
 /* dica ao passar o mouse ou focar (a tabela de cada gráfico traz os mesmos valores) */
@@ -1738,7 +1748,7 @@ function swInit() {
   sw.week = new Date(fechadas.length ? fechadas[fechadas.length - 1] : mons[mons.length - 1]);
 }
 const inR = (L, a, b) => L.filter(c => c.date >= a && c.date < b);
-function swBase() { let L = scope(); if (seesAllNow() && $('swAgent').value) L = L.filter(c => c.agent === $('swAgent').value); return L; }
+function swBase() { let L = scope().filter(c => daFila(c, $('swFila').value)); if (seesAllNow() && $('swAgent').value) L = L.filter(c => c.agent === $('swAgent').value); return L; }
 function swStats(L) {
   const k = L.filter(fcrVal), parc = k.filter(c => c.fcr === 'em_apuracao').length;
   return { n: L.length, csat: L.length ? avg(L.map(c => c.csat)) : null, fcr: k.length ? k.filter(c => fcrVal(c) === 'sim').length / k.length * 100 : null,
@@ -1813,7 +1823,7 @@ function renderSemana() {
   let ref = null, refLabel = '';
   if (modoDia) { ref = semL.length ? swStats(semL) : null; refLabel = 'a média da semana'; }
   else if (cmp === 'team') {
-    const t = TEAMW.get(isoDay(mon)); refLabel = 'o time';
+    const t = $('swFila').value ? null : TEAMW.get(isoDay(mon)); refLabel = 'o time';   // o resumo do time não é separado por fila
     ref = t ? { csat: t.csat_medio == null ? null : +t.csat_medio, fcr: t.fcr_pct == null ? null : +t.fcr_pct, resp: t.primeira_mediana_s == null ? null : +t.primeira_mediana_s } : null;
   } else { const pl = inR(base, addDays(mon, -7), mon); ref = pl.length ? swStats(pl) : null; refLabel = 'a semana anterior'; }
   const cur = swStats(L);
@@ -1896,7 +1906,7 @@ function swMove(dir) {
 }
 $('swModeW').onclick = () => { sw.mode = 'week'; renderSemana(); };
 $('swModeD').onclick = () => { sw.mode = 'day'; renderSemana(); };
-$('swAgent').onchange = $('swCmp').onchange = () => { swAllRev = false; renderSemana(); };
+$('swFila').onchange = $('swAgent').onchange = $('swCmp').onchange =() => { swAllRev = false; renderSemana(); };
 $('tab-sem').addEventListener('click', e => {
   const d = e.target.closest('[data-day]'); if (d) { sw.mode = 'day'; sw.day = parseDay(d.dataset.day); renderSemana(); return; }
   const o = e.target.closest('[data-open]'); if (o) { const c = DATA.find(x => x.id === o.dataset.open); if (c) openDrawer(c, swQueue.slice()); return; }
