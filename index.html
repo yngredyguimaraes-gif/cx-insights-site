@@ -440,7 +440,7 @@
       <div id="swTeam" style="margin-top:12px"></div>
       <section class="vcard" id="swRev" style="margin-top:12px"></section>
       <div id="swHist" style="margin-top:12px"></div>
-      <p class="note" style="margin-top:12px">A semana vai de segunda a domingo. FCR inclui conversas ainda dentro dos 7 dias ("parcial"), que podem mudar. Tempos são estimativas: pausas de 12h ou mais são descontadas.</p>
+      <p class="note" style="margin-top:12px">A semana vai de segunda a domingo. "Resolvido no primeiro atendimento?" (sem retorno em 7 dias) inclui conversas ainda dentro dos 7 dias ("parcial"), que podem mudar. Tempos são estimativas: pausas de 12h ou mais são descontadas.</p>
     </div>
 
     <!-- aba conversas -->
@@ -455,7 +455,7 @@
           <div id="agentWrap"><label for="fAgent">Atendente</label><select id="fAgent"></select></div>
           <div><label for="fCsat">Nota de CSAT</label>
             <select id="fCsat"><option value="">Todas</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="low">Baixas (1 a 2)</option><option value="high">Altas (4 a 5)</option></select></div>
-          <div><label for="fFcr">FCR (sem retorno em 7 dias)</label>
+          <div><label for="fFcr">Resolvido no primeiro atendimento?</label>
             <select id="fFcr"><option value="">Todos</option><option value="sim">Sim</option><option value="nao">Não</option><option value="em_apuracao">Em apuração</option><option value="sem_classificacao">Sem classificação</option></select></div>
           <div><label for="fFav">Favoritas</label>
             <select id="fFav"><option value="">Todas</option><option value="1">Só as favoritas</option></select></div>
@@ -466,7 +466,7 @@
       <div class="tablewrap">
         <table>
           <thead><tr>
-            <th class="sortable" data-key="id">Conversa</th><th class="sortable" data-key="date">Data</th><th class="sortable" data-key="agent">Atendente</th><th class="sortable" data-key="csat">CSAT</th><th class="sortable" data-key="fcr">FCR</th>
+            <th class="sortable" data-key="id">Conversa</th><th class="sortable" data-key="date">Data</th><th class="sortable" data-key="agent">Atendente</th><th class="sortable" data-key="csat">CSAT</th><th class="sortable" data-key="fcr">Resolvido no primeiro atendimento?</th>
             <th class="sortable" data-key="dur">Atendimento</th><th class="sortable" data-key="gap">Entre resp.</th><th class="sortable" data-key="first">1ª resposta</th>
           </tr></thead>
           <tbody id="rows"></tbody>
@@ -474,7 +474,7 @@
         <div class="empty hidden" id="empty">Nenhuma conversa com esses filtros.</div>
       </div>
       <div style="text-align:center;margin-top:12px"><button class="btn ghost hidden" id="more" type="button"></button></div>
-      <p class="note" style="margin-top:12px">Tempos são estimativas: pausas de 12h ou mais (adiamento ou noite) são descontadas. Conversas com menos de 7 dias aparecem como "Em apuração" no FCR.</p>
+      <p class="note" style="margin-top:12px">Tempos são estimativas: pausas de 12h ou mais (adiamento ou noite) são descontadas. Conversas com menos de 7 dias aparecem como "Em apuração" em "Resolvido no primeiro atendimento?" (sem retorno em 7 dias).</p>
     </div>
 
     <!-- aba dados -->
@@ -799,7 +799,7 @@ function render() {
   $('kpis').innerHTML = [
     ['CSAT médio', list.length ? avg(list.map(c => c.csat)).toFixed(2) : '—'],
     ['Notas 4 e 5 (satisfeitos)', list.length ? Math.round(list.filter(c => c.csat >= 4).length / list.length * 100) + '%' : '—'],
-    ['FCR (inclui parciais)', fcrOk.length ? Math.round(fcrOk.filter(c => fcrVal(c) === 'sim').length / fcrOk.length * 100) + '%' : '—'],
+    ['Resolvido no primeiro atendimento? (inclui parciais)', fcrOk.length ? Math.round(fcrOk.filter(c => fcrVal(c) === 'sim').length / fcrOk.length * 100) + '%' : '—'],
     ['Tempo médio de atendimento', fmtSec(mDur)],
     ['1ª resposta (média, sem esperas longas)', fmtSec(mFirst)],
     ['Conversas', list.length]
@@ -843,8 +843,8 @@ function openDrawer(c, fila) {
         ${kv('Nota (CSAT, de 0 a 5)', sc(c.csat))}${kv('Avaliada em', fmtD(c.avaliado))}${kv('Cliente disse que resolveu', c.resolvido === 'sim' ? '<span class="tag yes">Sim</span>' : c.resolvido === 'nao' ? '<span class="tag no">Não</span>' : '—')}
         <div style="border-top:1px solid var(--line);padding-top:8px;margin-top:2px"><div style="font-size:12px;color:var(--muted);margin-bottom:3px">Comentário do cliente</div>${c.comment ? `<div style="font-size:13.5px;white-space:pre-wrap;word-break:break-word">${esc(c.comment)}</div>` : '<div style="font-size:13px;color:var(--muted)">Sem comentário.</div>'}</div></div>
       <div class="fcard"><div class="flb">Indicadores</div>
-        ${kv('FCR (sem retorno em 7 dias)', fcrTagC(c))}${kv('1ª resposta', fmtSec(c.first) + (c.longa ? ' · espera longa' : ''))}
-        ${kv('Atendimento (sem pausas de 12h+)', fmtSec(c.dur))}${kv('Entre respostas (média)', fmtSec(c.gap))}
+        ${kv('Resolvido no primeiro atendimento?', fcrTagC(c))}${kv('1ª resposta', fmtSec(c.first) + (c.longa ? ' · espera longa' : ''))}
+        ${kv('Atendimento', fmtSec(c.dur))}${kv('Entre respostas (média)', fmtSec(c.gap))}
         ${c.pausas ? `<div style="font-size:11.5px;color:var(--muted);margin-top:6px">${c.pausas} pausa(s) de 12h ou mais descontada(s) do tempo de atendimento (estimado).</div>` : ''}</div>
       <div class="fcard"><div class="flb">Conversa</div>
         ${kv('Atendente', esc(c.agent))}${kv('Canal', esc(c.canal || '—'))}${kv('Motivo', esc(c.motivo || 'sem classificação'))}
@@ -1120,7 +1120,7 @@ function renderDados() {
     ['Conversas', L.length],
     ['CSAT médio', L.length ? csatAvg(L).toFixed(2) : '—'],
     ['Notas 4 e 5 (satisfeitos)', L.length ? Math.round(L.filter(c => c.csat >= 4).length / L.length * 100) + '%' : '—'],
-    ['FCR (inclui parciais)', fcrOk.length ? Math.round(fcrPct(L)) + '%' : '—'],
+    ['Resolvido no primeiro atendimento? (inclui parciais)', fcrOk.length ? Math.round(fcrPct(L)) + '%' : '—'],
     ['Atendimento (mediana)', mDur == null ? '—' : fmtHm(mDur / 3600)],
     ['1ª resposta (mediana, sem esperas longas)', mFirst == null ? '—' : fmtMin(mFirst / 60)]
   ].map(([l, v], i) => { const g = [L, L, L.filter(c => c.csat >= 4), fcrOk, L.filter(c => c.dur != null), L.filter(c => !c.longa && c.first != null)][i];
@@ -1139,7 +1139,7 @@ function renderDados() {
   const porAtendente = seesAllNow() && !$('dAgent').value;
   if (porAtendente) {
     cards.push(rankCard('CSAT médio por atendente', 'Só quem tem 3 conversas ou mais no período', rankItems(L, c => c.agent, csatAvg, { fmt: v => v.toFixed(2), min: 3, short: true }), { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
-    cards.push(rankCard('FCR por atendente', 'Só quem tem 3 conversas ou mais com FCR conhecido no período', rankItems(L.filter(fcrVal), c => c.agent, fcrPct, { fmt: v => Math.round(v) + '%', min: 3, short: true }), { fmt: v => Math.round(v) + '%', max: 100, col: '% FCR' }));
+    cards.push(rankCard('Resolvido no primeiro atendimento, por atendente', 'Só quem tem 3 conversas ou mais com essa resposta conhecida no período', rankItems(L.filter(fcrVal), c => c.agent, fcrPct, { fmt: v => Math.round(v) + '%', min: 3, short: true }), { fmt: v => Math.round(v) + '%', max: 100, col: '% sim' }));
     cards.push(rankCard('Tempo médio por resposta, por atendente', 'Média do tempo entre a mensagem do cliente e a resposta da atendente, sem esperas de 12h ou mais (estimativa). Do mais rápido ao mais lento. Aparecem todos que tiveram resposta medida no período; quem tem menos de 3 conversas vem marcado como "poucos dados"', rankItems(L.filter(c => c.gap != null), c => c.agent, g => { const m = avg(g.map(c => c.gap)); return m == null ? null : m / 60; }, { fmt: fmtMin, flag: 3, asc: true, short: true }), { fmt: fmtMin, col: 'Tempo médio por resposta' }));
   }
   cards.push(rankCard('Principais motivos', 'Conversas por motivo classificado (os 8 maiores)', rankItems(L, c => c.motivo || 'sem classificação', g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas', top: 8, key: 'motivos' }));
@@ -1151,9 +1151,9 @@ function renderDados() {
   cards.push(rankCard('Média de tempo de resposta por assunto', 'Média do tempo entre a mensagem do cliente e a resposta da atendente, sem esperas de 12h ou mais (estimativa). Da mais lenta para a mais rápida', rankItems(L.filter(c => c.gap != null), sem, g => { const m = avg(g.map(c => c.gap)); return m == null ? null : m / 60; }, { fmt: fmtMin, ...ass }), { fmt: fmtMin, col: 'Tempo médio por resposta', key: 'ass-gap' }));
   cards.push(rankCard('Tempo de 1ª resposta por assunto', 'Mediana do tempo até a primeira resposta da atendente, sem as esperas longas. Da mais lenta para a mais rápida', rankItems(L.filter(c => !c.longa && c.first != null), sem, g => { const m = median(g.map(c => c.first)); return m == null ? null : m / 60; }, { fmt: fmtMin, ...ass }), { fmt: fmtMin, col: 'Mediana da 1ª resposta', key: 'ass-first' }));
   cards.push(rankCard('Resolução do cliente por assunto', 'Porcentagem de clientes que disseram, na avaliação, que o problema foi resolvido. Da menor para a maior. Conta só quem respondeu sim ou não', rankItems(L.filter(c => c.resolvido === 'sim' || c.resolvido === 'nao'), sem, resolPct, { fmt: v => Math.round(v) + '%', asc: true, ...ass }), { fmt: v => Math.round(v) + '%', max: 100, col: '% resolvido', key: 'ass-resol' }));
-  const porFcr = [['FCR sim', L.filter(c => fcrVal(c) === 'sim')], ['FCR não', L.filter(c => fcrVal(c) === 'nao')]].filter(([, g]) => g.length)
+  const porFcr = [['Sim no 1' + String.fromCharCode(186) + ' atendimento', L.filter(c => fcrVal(c) === 'sim')], ['Não no 1' + String.fromCharCode(186) + ' atendimento', L.filter(c => fcrVal(c) === 'nao')]].filter(([, g]) => g.length)
     .map(([k, g]) => ({ label: k, value: csatAvg(g), n: g.length, g, tip: `${k}: CSAT médio ${csatAvg(g).toFixed(2)} · ${g.length} conversa(s)` }));
-  cards.push(rankCard('A nota muda quando o cliente volta?', 'CSAT médio de quem teve FCR e de quem voltou pelo mesmo motivo', porFcr, { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
+  cards.push(rankCard('A nota muda quando o cliente volta?', 'CSAT médio de quem resolveu no primeiro atendimento e de quem voltou pelo mesmo motivo', porFcr, { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
   $('dCharts').innerHTML = cards.join('');
 }
 
@@ -1170,7 +1170,7 @@ function openDrill(el) {
   $('drillSub').textContent = `${sub} · ${list.length} conversa(s) nesta lista`;
   $('drillList').innerHTML = list.map(c => `<button type="button" class="drow" data-id="${esc(c.id)}">
     <span class="dmain"><b>${esc(c.cliente || c.id)}</b><small>${fmtD(c.date)} · ${esc(c.agent)} · ${esc(c.motivo || 'sem classificação')}</small><small>Protocolo ${esc(c.id)}</small></span>
-    <span class="dside"><span>CSAT ${sc(c.csat)}</span><span>FCR ${fcrTagC(c)}</span></span></button>`).join('');
+    <span class="dside"><span>CSAT ${sc(c.csat)}</span><span>Resolvido no 1º? ${fcrTagC(c)}</span></span></button>`).join('');
   $('drill').classList.add('open'); $('drillList').scrollTop = 0; $('drillClose').focus();
 }
 function closeDrill() { $('drill').classList.remove('open'); $('drillList').innerHTML = ''; drillFrom = null; }
@@ -1817,7 +1817,7 @@ function renderSemana() {
   const fcrComp = !!ref && ((cmp === 'team' && !modoDia && !equipe) || comparavel(cur, ref)), fcrParc = cur.share > 0.3;
   $('swTiles').innerHTML = [
     swTile('CSAT médio', cur.csat, v => v.toFixed(2), ref ? ref.csat : null, false, '', refLabel),
-    swTile(fcrParc ? 'FCR (parcial)' : 'FCR', cur.fcr, v => Math.round(v) + '%', fcrComp && ref ? ref.fcr : null, false, 'pp', refLabel,
+    swTile(fcrParc ? 'Resolvido no primeiro atendimento? (parcial)' : 'Resolvido no primeiro atendimento?', cur.fcr, v => Math.round(v) + '%', fcrComp && ref ? ref.fcr : null, false, 'pp', refLabel,
       fcrParc ? `${Math.round(cur.share * 100)}% das conversas ainda dentro dos 7 dias` : (cur.parcial ? `${cur.parcial} parcial(is)` : ''),
       cur.fcr != null && ref && !fcrComp ? 'sem comparação: a janela de 7 dias ainda não fechou' : ''),
     swTile('1ª resposta (mediana)', cur.resp == null ? null : cur.resp / 60, minTxt, ref && ref.resp != null ? ref.resp / 60 : null, true, 'min', refLabel),
@@ -1842,7 +1842,7 @@ function renderSemana() {
       } else if (cmp === 'team' && !equipe) I.push([x >= 0 ? 'good' : 'bad', x === 0 ? `${quem} está igual à média do time.` : `${quem} está ${a} ${x > 0 ? 'acima' : 'abaixo'} da média do time (${ref.csat.toFixed(1)} → ${cur.csat.toFixed(1)}).`]);
       else I.push([x >= 0 ? 'good' : 'bad', x === 0 ? `${quem} ficou igual ao da semana anterior.` : `${quem} ${x > 0 ? 'subiu' : 'caiu'} ${a} em relação à semana anterior (${ref.csat.toFixed(1)} → ${cur.csat.toFixed(1)}).`]);
     } else I.push(['info', `${quem} foi ${cur.csat.toFixed(1)}. Não há ${modoDia ? 'outros dias' : 'semana anterior'} para comparar.`]);
-    if (!modoDia && fcrComp && ref.fcr != null && cur.fcr != null && Math.abs(cur.fcr - ref.fcr) >= 5) I.push([cur.fcr > ref.fcr ? 'good' : 'bad', `O FCR ${cur.fcr > ref.fcr ? 'subiu' : 'caiu'} ${fmtN(Math.abs(cur.fcr - ref.fcr))} pontos percentuais (${Math.round(ref.fcr)}% → ${Math.round(cur.fcr)}%) em relação ${cmp === 'team' && !equipe ? 'ao time' : 'à semana anterior'}.`]);
+    if (!modoDia && fcrComp && ref.fcr != null && cur.fcr != null && Math.abs(cur.fcr - ref.fcr) >= 5) I.push([cur.fcr > ref.fcr ? 'good' : 'bad', `O percentual resolvido no primeiro atendimento ${cur.fcr > ref.fcr ? 'subiu' : 'caiu'} ${fmtN(Math.abs(cur.fcr - ref.fcr))} pontos percentuais (${Math.round(ref.fcr)}% → ${Math.round(cur.fcr)}%) em relação ${cmp === 'team' && !equipe ? 'ao time' : 'à semana anterior'}.`]);
     const wm = worstMotivo(L, modoDia ? 2 : 3);
     I.push(wm ? ['warn', `O motivo com a pior nota foi <b>${esc(wm.k)}</b>: média ${wm.v.toFixed(1)} em ${wm.n} conversas. É por onde vale começar.`] : ['info', 'Poucas conversas por motivo para comparar.']);
     const rv = swReview(L), volt = rv.filter(x => fcrVal(x.c) === 'nao').length;
@@ -1858,7 +1858,7 @@ function renderSemana() {
       if (mv.length >= 2) I.splice(1, 0, ['info', `Quem mais subiu: <b>${esc(mv[0].n)}</b> (${mv[0].d >= 0 ? '+' : '−'}${Math.abs(mv[0].d).toFixed(2)}). Quem mais caiu: <b>${esc(mv[mv.length - 1].n)}</b> (${mv[mv.length - 1].d >= 0 ? '+' : '−'}${Math.abs(mv[mv.length - 1].d).toFixed(2)}).`]);
     }
     const cel = (v, d) => `<td><div class="tv">${v}</div>${d}</td>`, sem = '<span class="tdl eq">—</span>';
-    tabelaTime = `<section class="vcard"><h3>Time por atendente</h3><div class="sub">Do menor para o maior CSAT, para ver quem precisa de atenção. A seta mostra a variação em relação à semana anterior: verde melhorou, vermelho piorou. Clique numa linha para abrir só essa pessoa</div><div class="tablewrap" style="border:0"><table style="min-width:560px"><thead><tr><th>Atendente</th><th>Conversas</th><th>CSAT (0 a 5)</th><th>FCR (%)</th><th>1ª resposta (min)</th></tr></thead><tbody>` +
+    tabelaTime = `<section class="vcard"><h3>Time por atendente</h3><div class="sub">Do menor para o maior CSAT, para ver quem precisa de atenção. A seta mostra a variação em relação à semana anterior: verde melhorou, vermelho piorou. Clique numa linha para abrir só essa pessoa</div><div class="tablewrap" style="border:0"><table style="min-width:560px"><thead><tr><th>Atendente</th><th>Conversas</th><th>CSAT (0 a 5)</th><th>Resolvido no primeiro atendimento? (%)</th><th>1ª resposta (min)</th></tr></thead><tbody>` +
       rows.map(r => {
         const pouco = r.s.n < 5, comp = !!r.ps && !pouco && r.ps.n >= 5, fcrOk = comp && comparavel(r.s, r.ps), parc = r.s.share > 0.3;
         return `<tr data-ag="${esc(r.n)}"><td><div class="tnome"><div class="nav">${avatarByName(r.n)}</div>${esc(r.n)}</div></td>` +
@@ -1866,7 +1866,7 @@ function renderSemana() {
           cel(r.s.csat == null ? '—' : r.s.csat.toFixed(2), comp ? dlt(r.s.csat, r.ps.csat, false, '') : sem) +
           cel(r.s.fcr == null ? '—' : Math.round(r.s.fcr) + '%' + (parc ? '*' : ''), fcrOk ? dlt(r.s.fcr, r.ps.fcr, false, 'pp') : `<span class="tdl eq">${parc ? 'parcial' : '—'}</span>`) +
           cel(r.s.resp == null ? '—' : minTxt(r.s.resp / 60).replace(' min', ''), comp ? dlt(r.s.resp == null ? null : r.s.resp / 60, r.ps.resp == null ? null : r.ps.resp / 60, true, 'min') : sem) + '</tr>';
-      }).join('') + '</tbody></table></div><p class="note" style="margin:10px 0 0">* FCR parcial: mais de 30% das conversas ainda estão dentro dos 7 dias, por isso não há variação (a semana anterior já fechou). "Poucos dados": menos de 5 conversas, sem comparação.</p></section>';
+      }).join('') + '</tbody></table></div><p class="note" style="margin:10px 0 0">* Resultado parcial: mais de 30% das conversas ainda estão dentro dos 7 dias, por isso não há variação (a semana anterior já fechou). "Poucos dados": menos de 5 conversas, sem comparação.</p></section>';
   }
   const COR = { good: 'var(--good)', bad: 'var(--bad)', warn: 'var(--warn)', info: 'var(--dark)' };
   $('swIns').innerHTML = '<h3>O que mais importa</h3>' + I.slice(0, 4).map(([t, h]) => `<div class="insr"><span class="dot" style="background:${COR[t]}"></span><div>${h}</div></div>`).join('');
