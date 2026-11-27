@@ -1128,7 +1128,7 @@ function renderDados() {
 
   const cards = [];
   cards.push(seriesCard(`CSAT médio por ${u}`, `Nota de 0 a 5, agrupada por ${u} de abertura da conversa`, weeklySeries(L, csatAvg, { fmt: v => v.toFixed(2) }), { fmt: v => v.toFixed(2), fmtTick: v => fmtN(v), max: 5, col: 'CSAT médio', labelAll: true }));
-  cards.push(seriesCard(`Conversas avaliadas por ${u}`, `Quantas conversas com CSAT foram abertas em cada ${u}`, weeklySeries(L, g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
+  if (isLid(viewAs ? simPerson() : me)) cards.push(seriesCard(`Conversas avaliadas por ${u}`,`Quantas conversas com CSAT foram abertas em cada ${u}`, weeklySeries(L, g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas' }));
 
   const dist = [1, 2, 3, 4, 5].map(n => { const k = L.filter(c => c.csat === n).length; return { label: 'Nota ' + n, value: k, n: k, g: L.filter(c => c.csat === n), tip: `Nota ${n}: ${k} conversa(s) · ${L.length ? Math.round(k / L.length * 100) : 0}%` }; });
   cards.push(vcard('Como os clientes avaliaram', 'Número de conversas em cada nota de CSAT', colChart(dist, { fmt: v => String(Math.round(v)) }), ['Nota', 'Conversas', '% do total'], dist.map(d => [d.label, d.n, (L.length ? Math.round(d.n / L.length * 100) : 0) + '%'])));
@@ -1142,7 +1142,7 @@ function renderDados() {
     cards.push(rankCard('(FCR) Resolvido no primeiro contato, por atendente', 'Só quem tem 3 conversas ou mais com essa resposta conhecida no período', rankItems(L.filter(fcrVal), c => c.agent, fcrPct, { fmt: v => Math.round(v) + '%', min: 3, short: true }), { fmt: v => Math.round(v) + '%', max: 100, col: '% sim' }));
     cards.push(rankCard('Tempo médio por resposta, por atendente', 'Média do tempo entre a mensagem do cliente e a resposta da atendente, sem esperas de 12h ou mais (estimativa). Do mais rápido ao mais lento. Aparecem todos que tiveram resposta medida no período; quem tem menos de 3 conversas vem marcado como "poucos dados"', rankItems(L.filter(c => c.gap != null), c => c.agent, g => { const m = avg(g.map(c => c.gap)); return m == null ? null : m / 60; }, { fmt: fmtMin, flag: 3, asc: true, short: true }), { fmt: fmtMin, col: 'Tempo médio por resposta' }));
   }
-  cards.push(rankCard('Principais motivos', 'Conversas por motivo classificado (os 8 maiores)', rankItems(L, c => c.motivo || 'sem classificação', g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas', top: 8, key: 'motivos' }));
+  if (isLid(viewAs ? simPerson() : me)) cards.push(rankCard('Principais motivos','Conversas por motivo classificado (os 8 maiores)', rankItems(L, c => c.motivo || 'sem classificação', g => g.length, { fmt: v => String(v) }), { fmt: v => String(Math.round(v)), col: 'Conversas', top: 8, key: 'motivos' }));
   /* por assunto (motivo classificado): do que mais precisa de atenção para o que menos precisa; quem tem menos de 3 conversas vem marcado */
   const sem = c => c.motivo || 'sem classificação', ass = { flag: 3 };
   const resolPct = g => { const k = g.filter(c => c.resolvido === 'sim' || c.resolvido === 'nao'); return k.length ? k.filter(c => c.resolvido === 'sim').length / k.length * 100 : null; };
