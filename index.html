@@ -1153,7 +1153,7 @@ function renderDados() {
   cards.push(rankCard('Resolução do cliente por assunto', 'Porcentagem de clientes que disseram, na avaliação, que o problema foi resolvido. Da menor para a maior. Conta só quem respondeu sim ou não', rankItems(L.filter(c => c.resolvido === 'sim' || c.resolvido === 'nao'), sem, resolPct, { fmt: v => Math.round(v) + '%', asc: true, ...ass }), { fmt: v => Math.round(v) + '%', max: 100, col: '% resolvido', key: 'ass-resol' }));
   const porFcr = [['Sim no 1' + String.fromCharCode(186) + ' atendimento', L.filter(c => fcrVal(c) === 'sim')], ['Não no 1' + String.fromCharCode(186) + ' atendimento', L.filter(c => fcrVal(c) === 'nao')]].filter(([, g]) => g.length)
     .map(([k, g]) => ({ label: k, value: csatAvg(g), n: g.length, g, tip: `${k}: CSAT médio ${csatAvg(g).toFixed(2)} · ${g.length} conversa(s)` }));
-  cards.push(rankCard('A nota muda quando o cliente volta?', 'CSAT médio de quem resolveu no primeiro atendimento e de quem voltou pelo mesmo motivo', porFcr, { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
+  if (isLid(viewAs ? simPerson() : me)) cards.push(rankCard('A nota muda quando o cliente volta?','CSAT médio de quem resolveu no primeiro atendimento e de quem voltou pelo mesmo motivo', porFcr, { fmt: v => v.toFixed(2), max: 5, col: 'CSAT médio' }));
   $('dCharts').innerHTML = cards.join('');
 }
 
